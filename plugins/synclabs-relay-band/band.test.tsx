@@ -2104,20 +2104,20 @@ test('indicador: medindo, +Nk/limiar, reage ao /relay auto e mostra trocando na 
   const s = comStatus(on)
   const c = await auto($, on, { ligado: true })
   await reiniciar($)
-  expect(s.ultimo()).toBe('Sync_Relay · auto ligado · medindo')
+  expect(s.ultimo()).toBe('auto ligado · medindo')
   await base($, c)
   c.tokens.v = 112_000
   await turno($, { turnId: 't2' })
-  expect(s.ultimo()).toBe('Sync_Relay · auto ligado · 82k de 150k')
+  expect(s.ultimo()).toBe('auto ligado · 82k de 150k')
   await $.command.run({ command: 'relay', args: 'auto' } as never)
-  expect(s.ultimo()).toBe('Sync_Relay · auto desligado · 82k de 150k')
+  expect(s.ultimo()).toBe('auto desligado · 82k de 150k')
   await $.command.run({ command: 'relay', args: 'auto' } as never)
   c.tokens.v = 182_000
   await turno($, { turnId: 't3' })
   expect(await contando($)).toBe(true)
-  expect(s.ultimo()).toBe('Sync_Relay · auto ligado · trocando…')
+  expect(s.ultimo()).toBe('auto ligado · trocando…')
   await apertar($, 'cancelar')
-  expect(s.ultimo()).toBe('Sync_Relay · auto desligado · 152k de 150k') // Cancelar desligou o auto
+  expect(s.ultimo()).toBe('auto desligado · 152k de 150k') // Cancelar desligou o auto
 })
 
 test('indicador (en): o nome Sync_Relay fixo, auto on/off, "45k of 150k" e o /relay button nao tira o texto', async ($, on) => {
@@ -2127,11 +2127,11 @@ test('indicador (en): o nome Sync_Relay fixo, auto on/off, "45k of 150k" e o /re
   await base($, c)
   c.tokens.v = 75_000
   await turno($, { turnId: 't2' })
-  expect(s.ultimo()).toBe('Sync_Relay · auto off · 45k of 150k')
+  expect(s.ultimo()).toBe('auto off · 45k of 150k')
   await $.command.run({ command: 'relay', args: 'button' } as never) // esconde so o botao
   expect(await botao($, 'auto')).toBe(false)
   await $.command.run({ command: 'relay', args: 'auto' } as never)
-  expect(s.ultimo()).toBe('Sync_Relay · auto on · 45k of 150k')
+  expect(s.ultimo()).toBe('auto on · 45k of 150k')
 })
 
 test('indicador: sessao nao interativa nao mostra nada', async ($, on) => {
@@ -2194,7 +2194,7 @@ test('/clear zera o $.state do motor: o mod reinicia (interativo, auto, limiar) 
   await clearReal($, c) // sem session.start na sessao nova, como no motor
   c.tokens.v = 30_000
   await turno($, { turnId: 'n1' })
-  expect(s.ultimo()).toBe('Sync_Relay · auto ligado · 0k de 150k') // saiu de "medindo"
+  expect(s.ultimo()).toBe('auto ligado · 0k de 150k') // saiu de "medindo"
   c.tokens.v = 182_000
   await turno($, { turnId: 'n2' })
   expect(await contando($)).toBe(true)
@@ -2743,10 +2743,10 @@ test('/clear real: logo depois, a sessao nova carrega store e env sem esperar tu
   await c.relogio.advance(1_000)
   expect(await apresentacao($)).toBe(false)
   expect(await rotuloAuto($)).toBe('Sync_Relay auto: ligado')
-  expect(s.ultimo()).toBe('Sync_Relay · auto ligado · medindo')
+  expect(s.ultimo()).toBe('auto ligado · medindo')
   c.tokens.v = 30_000
   await turno($, { turnId: 'n1' })
-  expect(s.ultimo()).toBe('Sync_Relay · auto ligado · 0k de 5k')
+  expect(s.ultimo()).toBe('auto ligado · 0k de 5k')
   semGravar(c)
 })
 
@@ -2786,7 +2786,7 @@ test('store ilegivel depois do /clear: botao e faixa com 400k e a linha de statu
   await turno($, { turnId: 'n1' })
   c.tokens.v = 400_000
   await turno($, { turnId: 'n2' })
-  expect(s.ultimo()).toBe('Sync_Relay · auto desligado · 370k de 150k')
+  expect(s.ultimo()).toBe('auto desligado · 370k de 150k')
   expect(await botao($, 'trocar')).toBe(true) // faixa
   await dormir(80)
   expect(rastroTudo(c)).toMatch(/carregar falhou: [^;]+; usando padroes/)
@@ -2826,7 +2826,7 @@ test('hot reload: o 1o turno depois do reload preserva interativo, piso e fase',
   c.zerados.add('carregado') // o atomo novo do reload
   c.tokens.v = 40_000
   await turno($, { turnId: 'r1' })
-  expect(s.ultimo()).toBe('Sync_Relay · auto ligado · 10k de 150k') // interativo e piso (30k) mantidos
+  expect(s.ultimo()).toBe('auto ligado · 10k de 150k') // interativo e piso (30k) mantidos
   c.tokens.v = 190_000
   await turno($, { turnId: 'r2' })
   expect(await contando($)).toBe(true) // fase ociosa e auto vivos: a contagem dispara

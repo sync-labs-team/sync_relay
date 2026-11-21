@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.1.2
+
+Fixes after publishing 0.1.1
+- The band's status line no longer repeats the product name in its text (`auto off · 45k of 150k`, `measuring`, `switching…`). Claude Code already puts the plugin name in front of a mod's status line, so 0.1.1 showed `synclabs-relay-band: Sync_Relay · auto off · …`.
+- `SendFeedback` is allowed in the main session. It only drafts a report on your machine and sends nothing. The other coordination tools (`ListAgents`, `TaskStop`, `PushNotification`, the `Cron*` tools, `ScheduleWakeup`, plan mode, `AskUserQuestion`, `ToolSearch`, `Skill`, `SendMessage`, `Agent`, `Task*`, `TodoWrite`) were already allowed. `Monitor` (runs a command), `WebFetch`, `WebSearch` and `Artifact` stay locked.
+- Docs: `/relay` is a command of the band; typing `relay` as the whole message works with or without the band.
+
+Tests: 87 for the core, 182 for the band.
+
+Upgrading from 0.1.1
+- Update both plugins (`claude plugin marketplace update synclabs-relay`, then `claude plugin update synclabs-relay` and `claude plugin update synclabs-relay-band@synclabs-relay`), then restart Claude Code. Nothing is stored under a new key in this release.
+- If you only run the core, `relay` (no slash) is the way to switch; `/relay` exists only with the band installed.
+
 ## 0.1.1
 
 Safe switch
@@ -22,7 +35,7 @@ Docs
 Tests: 86 for the core, 182 for the band.
 
 Upgrading from 0.1.0
-- `/handoff`, `handoff` and `passagem` stop working. Use `/relay` or `relay`.
+- `/handoff`, `handoff` and `passagem` stop working. Use `relay` (with the band installed, `/relay` too).
 - The `threshold`, `limiar` and `botao` subcommands are gone. Set `threshold_tokens` and `button` in the config file.
 - A threshold you stored with the old command in the band's state is ignored. Set `threshold_tokens` in the config file if you want one.
 - The switch point now depends on the model's window, so it can differ from the old fixed growth. `/relay status` shows it and where it comes from.

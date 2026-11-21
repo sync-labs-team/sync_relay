@@ -2,7 +2,7 @@
 
 English | [Português](README.pt-BR.md) | [Español](README.es.md)
 
-![License: MIT](https://img.shields.io/badge/license-MIT-blue) ![Version 0.1.1](https://img.shields.io/badge/version-0.1.1-informational) ![CLI: Claude Code | Codex (untested)](https://img.shields.io/badge/CLI-Claude%20Code%20%7C%20Codex%20(untested)-lightgrey)
+![License: MIT](https://img.shields.io/badge/license-MIT-blue) ![Version 0.1.2](https://img.shields.io/badge/version-0.1.2-informational) ![CLI: Claude Code | Codex (untested)](https://img.shields.io/badge/CLI-Claude%20Code%20%7C%20Codex%20(untested)-lightgrey)
 
 Keeps your main coding session on orchestration, sends the work to subagents, and moves a long session to a fresh one with a handoff file before the context gets expensive.
 
@@ -51,7 +51,7 @@ With the band, `/relay` does steps 2 and 3 for you, and `/relay auto` does them 
 | `/relay status` | Lock mode, auto, current context, switch point and where it comes from, handoff folder. |
 | `relay` | The whole message. Same as `/relay`, and the way to do it on Codex (then `/new`) or on Claude Code without the band. |
 
-Any other argument prints the usage. The status line next to your own reads like `Sync_Relay · auto off · 45k of 150k` (or `measuring`, `switching…`).
+Any other argument prints the usage. The status line next to your own reads like `synclabs-relay-band: auto off · 45k of 150k` (or `measuring`, `switching…`).
 
 ## Supported CLIs
 

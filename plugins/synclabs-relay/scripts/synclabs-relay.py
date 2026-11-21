@@ -32,7 +32,7 @@ LIVRES = {
     "TaskList", "TaskGet", "TaskStop", "TaskOutput", "ToolSearch", "Skill", "Workflow",
     "ReadNotifications", "ScheduleWakeup", "SendUserFile", "PushNotification", "EnterPlanMode",
     "ExitPlanMode", "CronCreate", "CronList", "CronDelete", "EndConversation", "TodoWrite",
-    "SendUserMessage", "TeamCreate",
+    "SendUserMessage", "TeamCreate", "SendFeedback",  # SendFeedback drafts a local report, sends nothing
     "REPL",  # Code Mode wrapper: each inner tools.X() call fires its own PreToolUse with the real name, still judged
     "Poll",  # Code Mode: waits for the result of the REPL or of a background agent
     # Codex

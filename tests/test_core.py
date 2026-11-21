@@ -275,6 +275,11 @@ class Trava(Limpo):  # scenarios 1-3
         self.assertTrue(negou(rodar("claude", {**PRE, "tool_name": "Read"}, CLI)))
         self.assertIsNone(rodar("claude", {**PRE, "tool_name": "Agent"}, CLI))
 
+    def test_sendfeedback_livre(self):  # drafts a local report, sends nothing (tools-reference); Monitor and WebFetch stay denied
+        self.assertIsNone(rodar("claude", {**PRE, "tool_name": "SendFeedback"}, CLI))
+        for preso in ("Monitor", "WebFetch"):
+            self.assertTrue(negou(rodar("claude", {**PRE, "tool_name": preso}, CLI)), preso)
+
     def test_force_e_off(self):
         sdk = {**CLI, "CLAUDE_CODE_ENTRYPOINT": "sdk-cli"}
         self.assertTrue(negou(rodar("claude", PRE, {**sdk, "SYNCLABS_RELAY_MODE": "force"})))

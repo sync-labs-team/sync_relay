@@ -2,7 +2,7 @@
 
 [English](README.md) | [Português](README.pt-BR.md) | Español
 
-![License: MIT](https://img.shields.io/badge/license-MIT-blue) ![Version 0.1.1](https://img.shields.io/badge/version-0.1.1-informational) ![CLI: Claude Code | Codex (untested)](https://img.shields.io/badge/CLI-Claude%20Code%20%7C%20Codex%20(sin%20probar)-lightgrey)
+![License: MIT](https://img.shields.io/badge/license-MIT-blue) ![Version 0.1.2](https://img.shields.io/badge/version-0.1.2-informational) ![CLI: Claude Code | Codex (untested)](https://img.shields.io/badge/CLI-Claude%20Code%20%7C%20Codex%20(sin%20probar)-lightgrey)
 
 Mantiene la sesión principal solo en la orquestación, envía el trabajo a subagentes y pasa una sesión larga a una nueva, con un archivo de traspaso, antes de que el contexto salga caro.
 
@@ -51,7 +51,7 @@ Con el band, `/relay` hace los pasos 2 y 3 por ti, y `/relay auto` los hace solo
 | `/relay status` | Modo del bloqueo, auto, contexto actual, punto de cambio y su origen, carpeta de traspasos. |
 | `relay` | El mensaje completo. Igual que `/relay`, y es la forma de hacerlo en Codex (luego `/new`) o en Claude Code sin el band. |
 
-Cualquier otro argumento muestra el uso. La línea de estado, junto a la tuya, se ve así: `Sync_Relay · auto off · 45k of 150k` (o `measuring`, `switching…`).
+Cualquier otro argumento muestra el uso. La línea de estado, junto a la tuya, se ve así: `synclabs-relay-band: auto off · 45k of 150k` (o `measuring`, `switching…`).
 
 ## CLI compatibles
 

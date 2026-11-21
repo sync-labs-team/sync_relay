@@ -2,7 +2,7 @@
 
 [English](README.md) | Português | [Español](README.es.md)
 
-![License: MIT](https://img.shields.io/badge/license-MIT-blue) ![Version 0.1.1](https://img.shields.io/badge/version-0.1.1-informational) ![CLI: Claude Code | Codex (untested)](https://img.shields.io/badge/CLI-Claude%20Code%20%7C%20Codex%20(n%C3%A3o%20testado)-lightgrey)
+![License: MIT](https://img.shields.io/badge/license-MIT-blue) ![Version 0.1.2](https://img.shields.io/badge/version-0.1.2-informational) ![CLI: Claude Code | Codex (untested)](https://img.shields.io/badge/CLI-Claude%20Code%20%7C%20Codex%20(n%C3%A3o%20testado)-lightgrey)
 
 Mantém a sessão principal só na orquestração, manda o trabalho para subagentes e passa uma sessão longa para uma nova, com um arquivo de passagem, antes de o contexto ficar caro.
 
@@ -51,7 +51,7 @@ Com o band, `/relay` faz os passos 2 e 3 por você, e `/relay auto` faz sozinho 
 | `/relay status` | Modo da trava, auto, contexto atual, ponto de troca e a origem dele, pasta das passagens. |
 | `relay` | A mensagem inteira. Igual a `/relay`, e é o jeito no Codex (depois `/new`) ou no Claude Code sem o band. |
 
-Qualquer outro argumento mostra o uso. A linha de estado, ao lado da sua, fica assim: `Sync_Relay · auto desligado · 45k de 150k` (ou `medindo`, `trocando…`).
+Qualquer outro argumento mostra o uso. A linha de estado, ao lado da sua, fica assim: `synclabs-relay-band: auto desligado · 45k de 150k` (ou `medindo`, `trocando…`).
 
 ## CLIs suportadas
 

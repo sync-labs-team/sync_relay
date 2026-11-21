@@ -1,6 +1,6 @@
 # Sync_Relay band (synclabs-relay-band)
 
-Optional, Claude Code only. Adds the `/relay` command, a fixed button `Sync_Relay auto: on/off` (pt-BR: `ligado/desligado`) and a status line (`Sync_Relay · auto off · 45k of 150k`). The band only triggers the switch; the handoff is written and delivered by the core plugin `synclabs-relay`, which this plugin depends on.
+Optional, Claude Code only. Adds the `/relay` command, a fixed button `Sync_Relay auto: on/off` (pt-BR: `ligado/desligado`) and a status line (`synclabs-relay-band: auto off · 45k of 150k`). The band only triggers the switch; the handoff is written and delivered by the core plugin `synclabs-relay`, which this plugin depends on.
 
 ```sh
 claude plugin install synclabs-relay-band@synclabs-relay
