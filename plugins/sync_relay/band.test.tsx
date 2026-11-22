@@ -3,7 +3,7 @@ import { expect, mock, test } from 'claude-code/testing'
 import { compactacao, CONTAGEM_S, configFile, defaultHandoffDir, deveAvisar, janela1m, LIMIAR_ACIMA, nomeArquivo, parseConfig, pontoDeTroca, resolveLang, slug, TETO_ESCRITA_MS } from './hooks/register'
 
 // Existing assertions use the pt-BR wording: pin the language (the test host locale is not stable).
-const pt = (on: any) => on('env.get', (_: any, e: any) => ({ value: e.name === 'SYNCLABS_RELAY_LANG' ? 'pt-BR' : undefined }))
+const pt = (on: any) => on('env.get', (_: any, e: any) => ({ value: e.name === 'SYNC_RELAY_LANG' ? 'pt-BR' : undefined }))
 
 // COPY of tests/vectors/paths.json (without _comment). A plugin test cannot read files or import outside its folder,
 // so the contract is embedded here; update this block whenever paths.json changes (drift check: see the T4 report).
@@ -148,18 +148,18 @@ const vectors = {
         "env": {
           "LOCALAPPDATA": "C:\\Users\\alice\\AppData\\Local"
         },
-        "expected": "C:\\Users\\alice\\AppData\\Local\\synclabs-relay\\handoffs"
+        "expected": "C:\\Users\\alice\\AppData\\Local\\sync_relay\\handoffs"
       },
       "posix_xdg": {
         "env": {
           "XDG_STATE_HOME": "/home/alice/.state"
         },
-        "expected": "/home/alice/.state/synclabs-relay/handoffs"
+        "expected": "/home/alice/.state/sync_relay/handoffs"
       },
       "posix_home": {
         "env": {},
         "home": "/home/alice",
-        "expected": "/home/alice/.local/state/synclabs-relay/handoffs"
+        "expected": "/home/alice/.local/state/sync_relay/handoffs"
       }
     }
   },
@@ -789,7 +789,7 @@ const vectors = {
 const M = { role: 'user' as const, text: 'resumo', toolUses: [] }
 
 const FAIXA = {
-  plugin: 'synclabs-relay-band',
+  plugin: 'sync_relay',
   component: 'AbovePrompt',
   props: {
     hasSurvey: false,
@@ -829,11 +829,11 @@ test('default handoff folder equals the shared vector (Windows, XDG, home)', () 
   expect(defaultHandoffDir(false, {}, null)).toBeNull() // no base: no folder, never a relative path
 })
 
-test('config file: SYNCLABS_RELAY_CONFIG, then XDG, then APPDATA, then ~/.config', () => {
-  expect(configFile(false, { SYNCLABS_RELAY_CONFIG: '/x/c.json', XDG_CONFIG_HOME: '/y' }, '/home/a')).toBe('/x/c.json')
-  expect(configFile(false, { XDG_CONFIG_HOME: '/y' }, '/home/a')).toBe('/y/synclabs-relay/config.json')
-  expect(configFile(true, { APPDATA: 'C:\\Users\\a\\AppData\\Roaming' }, null)).toBe('C:\\Users\\a\\AppData\\Roaming\\synclabs-relay\\config.json')
-  expect(configFile(false, {}, '/home/a')).toBe('/home/a/.config/synclabs-relay/config.json')
+test('config file: SYNC_RELAY_CONFIG, then XDG, then APPDATA, then ~/.config', () => {
+  expect(configFile(false, { SYNC_RELAY_CONFIG: '/x/c.json', XDG_CONFIG_HOME: '/y' }, '/home/a')).toBe('/x/c.json')
+  expect(configFile(false, { XDG_CONFIG_HOME: '/y' }, '/home/a')).toBe('/y/sync_relay/config.json')
+  expect(configFile(true, { APPDATA: 'C:\\Users\\a\\AppData\\Roaming' }, null)).toBe('C:\\Users\\a\\AppData\\Roaming\\sync_relay\\config.json')
+  expect(configFile(false, {}, '/home/a')).toBe('/home/a/.config/sync_relay/config.json')
   expect(configFile(false, {}, null)).toBeNull()
 })
 
@@ -1101,7 +1101,7 @@ type Ctx = {
   escritaFalha: { v: boolean }
   info: { v: Record<string, unknown> } // $.session.info(): o motor real NAO traz configRoot
   env: { v: Record<string, string> } // $.process.hookEnv()
-  penv: { v: Record<string, string | undefined> } // $.env.get: variaveis SYNCLABS_RELAY_BAND_*
+  penv: { v: Record<string, string | undefined> } // $.env.get: variaveis SYNC_RELAY_*
   zerados: Set<string> // atomos que o /clear zerou e o mod ainda nao escreveu: state.get devolve o padrao
   idFalhaNoFim: { v: boolean } // $.session.id() rejeita depois do next(e) do session.end
   idFalha: { v: boolean }
@@ -1162,7 +1162,7 @@ async function auto(
     zerados: new Set(),
     info: { v: { transcriptPath: 'C:\\Users\\x\\.claude\\projects\\C--x\\abc.jsonl', platform: 'windows', isHosted: false } },
     env: { v: { CLAUDE_PID: '100' } },
-    penv: { v: { SYNCLABS_RELAY_LANG: 'pt-BR', ...o.penv } },
+    penv: { v: { SYNC_RELAY_LANG: 'pt-BR', ...o.penv } },
   }
   on('session.usage', () => ({
     value: { startedAt: 0, context: { tokens: c.tokens.v, window: 1_000_000, percent: 18 }, rateLimits: [], cost: { usd: 0 } },
@@ -1301,10 +1301,10 @@ test('regra 1: botao Auto na faixa mostra e alterna', async ($, on) => {
   await auto($, on, { ligado: false })
   await turno($)
   const ui = await $.ui.mount({ ...FAIXA, surface: 'terminal' })
-  expect((await ui.find({ type: 'Button', key: 'auto' }))?.props.label).toBe('Sync_Relay auto: desligado')
+  expect((await ui.find({ type: 'Button', key: 'auto' }))?.props.label).toBe('sync_relay auto: desligado')
   await ui.press({ key: 'auto' })
   expect(await contando($)).toBe(false) // ligar nao dispara no meio; so no proximo fim de turno
-  expect((await ui.find({ type: 'Button', key: 'auto' }))?.props.label).toBe('Sync_Relay auto: ligado')
+  expect((await ui.find({ type: 'Button', key: 'auto' }))?.props.label).toBe('sync_relay auto: ligado')
   await ui.unmount()
 })
 
@@ -2025,7 +2025,7 @@ test('rastro em arquivo: fases, vivos, clear, session.end e prompt.submit, sem o
 
 test('rastro: corta em 200 linhas', async ($, on) => {
   const c = await auto($, on, { ligado: false })
-  const k = 'C:/Users/x/AppData/Local/synclabs-relay/handoffs/_trace-aaaa1111.md'
+  const k = 'C:/Users/x/AppData/Local/sync_relay/handoffs/_trace-aaaa1111.md'
   c.escritas.set(k, Array.from({ length: 300 }, (_, i) => `linha ${i}`).join('\n') + '\n')
   await reiniciar($)
   await dormir(80)
@@ -2049,7 +2049,7 @@ test('falha ao gravar o rastro nao quebra o fluxo nem o /clear', async ($, on) =
   expect(c.escritas.size).toBe(0)
 })
 
-const PASTA = 'C:/Users/x/AppData/Local/synclabs-relay/handoffs'
+const PASTA = 'C:/Users/x/AppData/Local/sync_relay/handoffs'
 const norm = (s: string) => s.replaceAll('\\', '/')
 
 test('pasta: sem configRoot, com transcriptPath, e a do usuario (arquivo de passagem e rastro)', async ($, on) => {
@@ -2068,7 +2068,7 @@ test('pasta: sem transcriptPath, usa CLAUDE_PLUGIN_DATA', async ($, on) => {
   const c = await auto($, on, { ligado: false })
   c.info.v = { platform: 'windows' }
   c.escritas.clear()
-  c.env.v = { CLAUDE_PLUGIN_DATA: 'C:\\Users\\x\\.claude\\plugins\\data\\synclabs-relay-band-synclabs-relay' }
+  c.env.v = { CLAUDE_PLUGIN_DATA: 'C:\\Users\\x\\.claude\\plugins\\data\\sync_relay-sync_relay' }
   await turno($)
   await apertar($, 'trocar')
   await turno($, { turnId: 't2' })
@@ -2120,9 +2120,9 @@ test('indicador: medindo, +Nk/limiar, reage ao /relay auto e mostra trocando na 
   expect(s.ultimo()).toBe('auto desligado · 152k de 150k') // Cancelar desligou o auto
 })
 
-test('indicador (en): o nome Sync_Relay fixo, auto on/off, "45k of 150k" e o /relay button nao tira o texto', async ($, on) => {
+test('indicador (en): o nome sync_relay fixo, auto on/off, "45k of 150k" e o /relay button nao tira o texto', async ($, on) => {
   const s = comStatus(on)
-  const c = await auto($, on, { ligado: false, penv: { SYNCLABS_RELAY_LANG: 'en' } })
+  const c = await auto($, on, { ligado: false, penv: { SYNC_RELAY_LANG: 'en' } })
   await reiniciar($)
   await base($, c)
   c.tokens.v = 75_000
@@ -2151,7 +2151,7 @@ test('/relay status (pt-BR): trava, auto, contexto, ponto de troca com a origem 
   c.tokens.v = 182_000
   await turno($, { turnId: 't2' })
   expect(await statusCmd($)).toBe(
-    'Trava: enforce · auto: desligado · contexto: 182k tokens · troca em 180k = piso 30k + 150k (compactação em 967k: padrão do modelo) · passagens: C:/Users/x/AppData/Local/synclabs-relay/handoffs · botão: visível',
+    'Trava: enforce · auto: desligado · contexto: 182k tokens · troca em 180k = piso 30k + 150k (compactação em 967k: padrão do modelo) · passagens: C:/Users/x/AppData/Local/sync_relay/handoffs · botão: visível',
   )
   await $.command.run({ command: 'relay', args: 'auto' } as never)
   expect(await statusCmd($)).toMatch(/auto: ligado/)
@@ -2161,16 +2161,16 @@ test('/relay status (pt-BR): trava, auto, contexto, ponto de troca com a origem 
 
 test('/relay status (en) com janela de 200K: o teto de 80% do caminho aparece na origem', async ($, on) => {
   on('session.model', () => ({ value: 'claude-sonnet-4-6' }))
-  const c = await auto($, on, { ligado: true, penv: { SYNCLABS_RELAY_LANG: 'en' } })
+  const c = await auto($, on, { ligado: true, penv: { SYNC_RELAY_LANG: 'en' } })
   c.tokens.v = 100_000
   await turno($, { turnId: 't2' })
   expect(await statusCmd($)).toBe(
-    'Lock: enforce · auto: on · context: 100k tokens · switch at 166k = floor 30k + 136k (80% of the way to compaction at 200k: model default) · handoffs: C:/Users/x/AppData/Local/synclabs-relay/handoffs · button: visible',
+    'Lock: enforce · auto: on · context: 100k tokens · switch at 166k = floor 30k + 136k (80% of the way to compaction at 200k: model default) · handoffs: C:/Users/x/AppData/Local/sync_relay/handoffs · button: visible',
   )
 })
 
 test('/relay status: sem piso ainda diz medindo; o limiar do env aparece como D', async ($, on) => {
-  const c = await sobre($, on, { SYNCLABS_RELAY_BAND_THRESHOLD: '5k' })
+  const c = await sobre($, on, { SYNC_RELAY_THRESHOLD: '5k' })
   await clearReal($, c)
   await c.relogio.advance(1_000)
   expect(await statusCmd($)).toMatch(/contexto: medindo · troca em medindo/)
@@ -2308,13 +2308,13 @@ test('botao Auto fixo: sem faixa aparece, alterna o store e o rotulo', async ($,
   await turno($)
   expect(await botao($, 'trocar')).toBe(false)
   const ui = await $.ui.mount({ ...FAIXA, surface: 'terminal' })
-  expect((await ui.find({ type: 'Button', key: 'auto' }))?.props.label).toBe('Sync_Relay auto: desligado')
+  expect((await ui.find({ type: 'Button', key: 'auto' }))?.props.label).toBe('sync_relay auto: desligado')
   await ui.press({ key: 'auto' })
   expect(c.mem.get('auto')).toBe(true)
-  expect((await ui.find({ type: 'Button', key: 'auto' }))?.props.label).toBe('Sync_Relay auto: ligado')
+  expect((await ui.find({ type: 'Button', key: 'auto' }))?.props.label).toBe('sync_relay auto: ligado')
   await ui.press({ key: 'auto' })
   expect(c.mem.get('auto')).toBe(false)
-  expect((await ui.find({ type: 'Button', key: 'auto' }))?.props.label).toBe('Sync_Relay auto: desligado')
+  expect((await ui.find({ type: 'Button', key: 'auto' }))?.props.label).toBe('sync_relay auto: desligado')
   await ui.unmount()
 })
 
@@ -2364,7 +2364,7 @@ test('apresentacao: Ligar automatico liga o auto, grava a marca e esconde a apre
   expect(c.mem.get('auto')).toBe(true)
   expect(c.mem.get('apresentado')).toBe(true)
   expect(await apresentacao($)).toBe(false)
-  expect((await olhar($, { type: 'Button', key: 'auto' }))?.props.label).toBe('Sync_Relay auto: ligado')
+  expect((await olhar($, { type: 'Button', key: 'auto' }))?.props.label).toBe('sync_relay auto: ligado')
 })
 
 test('apresentacao: Entendi mantem o auto desligado, grava a marca e esconde a apresentacao', async ($, on) => {
@@ -2373,7 +2373,7 @@ test('apresentacao: Entendi mantem o auto desligado, grava a marca e esconde a a
   expect(c.mem.has('auto')).toBe(false)
   expect(c.mem.get('apresentado')).toBe(true)
   expect(await apresentacao($)).toBe(false)
-  expect((await olhar($, { type: 'Button', key: 'auto' }))?.props.label).toBe('Sync_Relay auto: desligado')
+  expect((await olhar($, { type: 'Button', key: 'auto' }))?.props.label).toBe('sync_relay auto: desligado')
 })
 
 test('apresentacao: com a marca apresentado aparece o botao fixo', async ($, on) => {
@@ -2548,7 +2548,7 @@ test('duas linhas (passagem e other-mod): um botao de auto em cada, e o da passa
   // O kit acha os dois pela key, sem dizer de quem e: como na tela, so o rotulo os separa.
   const todos = await ui.findAll({ type: 'Button', key: 'auto' })
   await ui.unmount()
-  expect(todos.map((b: any) => b.props.label).sort()).toEqual(['Auto: desligado', 'Sync_Relay auto: desligado'])
+  expect(todos.map((b: any) => b.props.label).sort()).toEqual(['Auto: desligado', 'sync_relay auto: desligado'])
 })
 
 // 0.6.7: no motor real o auto mudou sem rastro de quem mudou; toda troca do auto fica no rastro, com a origem.
@@ -2565,7 +2565,7 @@ test('rastro: quem ligou ou desligou o auto (botao, comando, apresentacao)', asy
   expect(t).toMatch(/auto ligado -> desligado \(comando\)/)
 })
 
-// 0.6.8: ordem dos botoes da apresentacao e sobrescrita SYNCLABS_RELAY_BAND_THRESHOLD / SYNCLABS_RELAY_BAND_AUTO so desta sessao (nunca no store).
+// 0.6.8: ordem dos botoes da apresentacao e sobrescrita SYNC_RELAY_THRESHOLD / SYNC_RELAY_AUTO so desta sessao (nunca no store).
 test('apresentacao: Entendi vem antes da acao', async ($, on) => {
   await nova($, on)
   const ui = await $.ui.mount({ ...FAIXA, surface: 'terminal' })
@@ -2574,7 +2574,7 @@ test('apresentacao: Entendi vem antes da acao', async ($, on) => {
   expect(botoes.map((b: any) => b.key)).toEqual(['entendi', 'alternar'])
 })
 
-const SOBRE = { SYNCLABS_RELAY_BAND_THRESHOLD: '5k', SYNCLABS_RELAY_BAND_AUTO: '1' }
+const SOBRE = { SYNC_RELAY_THRESHOLD: '5k', SYNC_RELAY_AUTO: '1' }
 const sobre = async ($: any, on: any, penv: Record<string, string> = SOBRE) => {
   const c = await auto($, on, { penv })
   await dormir(30)
@@ -2586,7 +2586,7 @@ const semGravar = (c: Ctx) => {
   expect(c.mem.has('botao')).toBe(false)
 }
 
-test('env: SYNCLABS_RELAY_BAND_THRESHOLD e SYNCLABS_RELAY_BAND_AUTO valem na sessao, nao gravam no store e deixam rastro', async ($, on) => {
+test('env: SYNC_RELAY_THRESHOLD e SYNC_RELAY_AUTO valem na sessao, nao gravam no store e deixam rastro', async ($, on) => {
   const c = await sobre($, on)
   c.tokens.v = 30_000
   await turno($, { turnId: 't1' })
@@ -2613,7 +2613,7 @@ test('env: vale depois do /clear da propria sessao', async ($, on) => {
 test('env: comando e botao dentro da sessao mudam so a sessao, avisam e sobrevivem ao /clear', async ($, on) => {
   const c = await sobre($, on)
   await $.command.run({ command: 'relay', args: 'auto' } as never) // desliga
-  expect(c.toasts.some(t => /só nesta sessão \(SYNCLABS_RELAY_BAND_\*\)/.test(t))).toBe(true)
+  expect(c.toasts.some(t => /só nesta sessão \(SYNC_RELAY_\*\)/.test(t))).toBe(true)
   await turno($, { turnId: 't0' })
   await apertar($, 'auto') // liga de novo
   await apertar($, 'auto') // desliga
@@ -2628,11 +2628,11 @@ test('env: comando e botao dentro da sessao mudam so a sessao, avisam e sobreviv
 })
 
 test('env invalido: ignora a variavel, deixa uma linha no rastro e o resto segue no store', async ($, on) => {
-  const c = await sobre($, on, { SYNCLABS_RELAY_BAND_THRESHOLD: 'abc', SYNCLABS_RELAY_BAND_AUTO: '2' })
+  const c = await sobre($, on, { SYNC_RELAY_THRESHOLD: 'abc', SYNC_RELAY_AUTO: '2' })
   expect(await statusCmd($)).toMatch(/piso 30k \+ 150k/)
   const t = rastroTudo(c)
-  expect(t).toMatch(/SYNCLABS_RELAY_BAND_THRESHOLD.*invalido/)
-  expect(t).toMatch(/SYNCLABS_RELAY_BAND_AUTO.*invalido/)
+  expect(t).toMatch(/SYNC_RELAY_THRESHOLD.*invalido/)
+  expect(t).toMatch(/SYNC_RELAY_AUTO.*invalido/)
   expect(t).not.toMatch(/sobrescrita env limiar/)
   await $.command.run({ command: 'relay', args: 'auto' } as never)
   expect(c.mem.get('auto')).toBe(true) // sem sobrescrita valida: grava como sempre
@@ -2645,7 +2645,7 @@ test('sem env: nada muda (grava no store, sem rastro de sobrescrita)', async ($,
   expect(rastroTudo(c)).not.toMatch(/sobrescrita/)
 })
 
-// /relay button esconde e mostra o botao fixo "Sync_Relay auto" e lembra no store; o config.json so define o comeco.
+// /relay button esconde e mostra o botao fixo "sync_relay auto" e lembra no store; o config.json so define o comeco.
 const botaoCmd = ($: any) => $.command.run({ command: 'relay', args: 'button' } as never)
 const semFaixa = async ($: any, on: any, o: object = {}) => {
   const c = await auto($, on, o)
@@ -2742,7 +2742,7 @@ test('/clear real: logo depois, a sessao nova carrega store e env sem esperar tu
   await clearReal($, c)
   await c.relogio.advance(1_000)
   expect(await apresentacao($)).toBe(false)
-  expect(await rotuloAuto($)).toBe('Sync_Relay auto: ligado')
+  expect(await rotuloAuto($)).toBe('sync_relay auto: ligado')
   expect(s.ultimo()).toBe('auto ligado · medindo')
   c.tokens.v = 30_000
   await turno($, { turnId: 'n1' })
@@ -2755,7 +2755,7 @@ test('/clear real sem env: auto ligado no store segue ligado e a apresentacao vi
   await clearReal($, c)
   await c.relogio.advance(1_000)
   expect(await apresentacao($)).toBe(false)
-  expect(await rotuloAuto($)).toBe('Sync_Relay auto: ligado')
+  expect(await rotuloAuto($)).toBe('sync_relay auto: ligado')
   await apertar($, 'auto') // desliga de verdade (partia do estado certo)
   expect(c.mem.get('auto')).toBe(false)
 })
@@ -2810,11 +2810,11 @@ test('store ilegivel e depois legivel: o proximo turno le o estado de novo', asy
   await clearReal($, c)
   c.storeFalha.v = true
   await c.relogio.advance(1_000)
-  expect(await rotuloAuto($)).toBe('Sync_Relay auto: desligado') // padrao
+  expect(await rotuloAuto($)).toBe('sync_relay auto: desligado') // padrao
   c.storeFalha.v = false
   c.tokens.v = 30_000
   await turno($, { turnId: 'n1' })
-  expect(await rotuloAuto($)).toBe('Sync_Relay auto: ligado') // do store
+  expect(await rotuloAuto($)).toBe('sync_relay auto: ligado') // do store
 })
 
 // 0.6.11 D2: /reload-plugins numa sessao aberta (carregado nasce false, modulo com interativo=false, sem session.start)
@@ -2864,13 +2864,13 @@ test('0.6.12 Cancelar na contagem para a troca, grava auto=false, adia 50k, avis
   expect(c.toasts).toContain(CANCELADA)
   await c.relogio.advance(60_000)
   expect(c.enviados).toEqual([])
-  expect((await olhar($, { type: 'Button', key: 'auto' }))?.props.label).toBe('Sync_Relay auto: desligado')
+  expect((await olhar($, { type: 'Button', key: 'auto' }))?.props.label).toBe('sync_relay auto: desligado')
   await dormir(80)
   expect(rastroTudo(c)).toMatch(/auto ligado -> desligado \(botao\)/)
   expect(rastroTudo(c)).toMatch(/cancelou a contagem/)
 })
 
-test('0.6.12 Cancelar com a sobrescrita SYNCLABS_RELAY_BAND_* desliga so a sessao e nao grava no store', async ($, on) => {
+test('0.6.12 Cancelar com a sobrescrita SYNC_RELAY_* desliga so a sessao e nao grava no store', async ($, on) => {
   const c = await sobre($, on)
   c.tokens.v = 30_000
   await turno($, { turnId: 't1' })
@@ -2879,7 +2879,7 @@ test('0.6.12 Cancelar com a sobrescrita SYNCLABS_RELAY_BAND_* desliga so a sessa
   expect(await contando($)).toBe(true)
   await apertar($, 'cancelar')
   expect(await contando($)).toBe(false)
-  expect(c.toasts).toContain(`${CANCELADA} (só nesta sessão (SYNCLABS_RELAY_BAND_*))`)
+  expect(c.toasts).toContain(`${CANCELADA} (só nesta sessão (SYNC_RELAY_*))`)
   semGravar(c)
   c.tokens.v = 36_000 + 50_000
   await turno($, { turnId: 't3' })
@@ -3039,7 +3039,7 @@ async function cfgScene($: any, on: any, env: Record<string, string>, cfg: strin
   on('fs.read', (_: any, e: any) => {
     const txt = typeof cfg === 'function' ? cfg() : cfg
     const caminho = String(e.path).replaceAll('\\', '/')
-    if (txt !== null && caminho === env.SYNCLABS_RELAY_CONFIG) return { value: txt }
+    if (txt !== null && caminho === env.SYNC_RELAY_CONFIG) return { value: txt }
     if (extra.settings !== undefined && caminho.endsWith('/settings.json')) {
       cfgLidos.push(caminho)
       return { value: extra.settings }
@@ -3077,7 +3077,7 @@ const botaoTrocar = async ($: any) => {
 
 test('lang en: the button says "Switch session" and the banner is in English', async ($, on) => {
   const tokens = { v: 30_000 }
-  await cfgScene($, on, { SYNCLABS_RELAY_LANG: 'en' }, null, tokens)
+  await cfgScene($, on, { SYNC_RELAY_LANG: 'en' }, null, tokens)
   tokens.v = 182_000
   await $.turn.complete(TURNO)
   expect(await botaoTrocar($)).toBe('Switch session')
@@ -3088,7 +3088,7 @@ test('lang en: the button says "Switch session" and the banner is in English', a
 
 test('lang pt-BR from the config file (no env): "Trocar de sessão"', async ($, on) => {
   const tokens = { v: 30_000 }
-  await cfgScene($, on, { SYNCLABS_RELAY_CONFIG: 'C:/cfg/config.json' }, '{"lang":"pt-BR"}', tokens)
+  await cfgScene($, on, { SYNC_RELAY_CONFIG: 'C:/cfg/config.json' }, '{"lang":"pt-BR"}', tokens)
   tokens.v = 182_000
   await $.turn.complete(TURNO)
   expect(await botaoTrocar($)).toBe('Trocar de sessão')
@@ -3096,7 +3096,7 @@ test('lang pt-BR from the config file (no env): "Trocar de sessão"', async ($, 
 
 test('config threshold_tokens 100000: the band shows at 100k above the baseline, not at 99k', async ($, on) => {
   const tokens = { v: 30_000 }
-  const env = { SYNCLABS_RELAY_LANG: 'en', SYNCLABS_RELAY_CONFIG: 'C:/cfg/config.json' }
+  const env = { SYNC_RELAY_LANG: 'en', SYNC_RELAY_CONFIG: 'C:/cfg/config.json' }
   await cfgScene($, on, env, '{"threshold_tokens":100000}', tokens)
   tokens.v = 129_000 // +99k
   await $.turn.complete(TURNO)
@@ -3108,7 +3108,7 @@ test('config threshold_tokens 100000: the band shows at 100k above the baseline,
 
 test('without a config the default 150k applies (the same +101k does not show the band)', async ($, on) => {
   const tokens = { v: 30_000 }
-  await cfgScene($, on, { SYNCLABS_RELAY_LANG: 'en' }, null, tokens)
+  await cfgScene($, on, { SYNC_RELAY_LANG: 'en' }, null, tokens)
   tokens.v = 131_000
   await $.turn.complete(TURNO)
   expect(await botaoTrocar($)).toBeUndefined()
@@ -3116,7 +3116,7 @@ test('without a config the default 150k applies (the same +101k does not show th
 
 test('the button sends "relay" and the /relay command is registered', async ($, on) => {
   const tokens = { v: 30_000 }
-  const c = await cfgScene($, on, { SYNCLABS_RELAY_LANG: 'en' }, null, tokens)
+  const c = await cfgScene($, on, { SYNC_RELAY_LANG: 'en' }, null, tokens)
   await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
   expect(c.registrados).toEqual(['relay'])
   tokens.v = 182_000
@@ -3130,7 +3130,7 @@ test('the button sends "relay" and the /relay command is registered', async ($, 
 
 test('config handoff_dir (absolute) is where the band looks for the file', async ($, on) => {
   const tokens = { v: 30_000 }
-  const env = { SYNCLABS_RELAY_LANG: 'en', SYNCLABS_RELAY_CONFIG: 'C:/cfg/config.json' }
+  const env = { SYNC_RELAY_LANG: 'en', SYNC_RELAY_CONFIG: 'C:/cfg/config.json' }
   const perguntados: string[] = []
   on('fs.exists', (_: any, e: any) => (perguntados.push(String(e.path).replaceAll('\\', '/')),{ value: false }))
   on('fs.stat', () => ({ value: { mtimeMs: 0, size: 1 } }))
@@ -3145,7 +3145,7 @@ test('config handoff_dir (absolute) is where the band looks for the file', async
   for (const p of perguntados) expect(p.startsWith('D:/data/handoffs/c-users-x-p-')).toBe(true)
 })
 
-const FIXO = 'Sync_Relay auto: off'
+const FIXO = 'sync_relay auto: off'
 const rotuloFixo = async ($: any) => (await $.ui.mount({ ...FAIXA, surface: 'terminal' }).then(async (ui: any) => {
   const b = await ui.find({ type: 'Button', key: 'auto' })
   await ui.unmount()
@@ -3154,7 +3154,7 @@ const rotuloFixo = async ($: any) => (await $.ui.mount({ ...FAIXA, surface: 'ter
 
 test('config button:false hides the fixed button from the start; /relay button shows it for the session; absent or true shows it', async ($, on) => {
   const tokens = { v: 30_000 }
-  const env = { SYNCLABS_RELAY_LANG: 'en', SYNCLABS_RELAY_CONFIG: 'C:/cfg/config.json' }
+  const env = { SYNC_RELAY_LANG: 'en', SYNC_RELAY_CONFIG: 'C:/cfg/config.json' }
   await cfgScene($, on, env, '{"button":false,"threshold_tokens":100000}', tokens, new Map([['apresentado', true]]))
   await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
   await $.turn.complete(TURNO)
@@ -3168,7 +3168,7 @@ test('config button:false hides the fixed button from the start; /relay button s
 
 test('config without the button key (or button:true) shows the fixed button', async ($, on) => {
   const tokens = { v: 30_000 }
-  const env = { SYNCLABS_RELAY_LANG: 'en', SYNCLABS_RELAY_CONFIG: 'C:/cfg/config.json' }
+  const env = { SYNC_RELAY_LANG: 'en', SYNC_RELAY_CONFIG: 'C:/cfg/config.json' }
   await cfgScene($, on, env, '{"button":true}', tokens, new Map([['apresentado', true]]))
   await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
   await $.turn.complete(TURNO)
@@ -3177,14 +3177,14 @@ test('config without the button key (or button:true) shows the fixed button', as
 
 // Precedence of the remembered choices: session env > value saved in $.store by the command > config.json > default.
 const lembrar = async ($: any, on: any, cfg: string | null, mem: Map<string, unknown>, extraEnv: Record<string, string> = {}) => {
-  const env = { SYNCLABS_RELAY_LANG: 'en', SYNCLABS_RELAY_CONFIG: 'C:/cfg/config.json', ...extraEnv }
+  const env = { SYNC_RELAY_LANG: 'en', SYNC_RELAY_CONFIG: 'C:/cfg/config.json', ...extraEnv }
   mem.set('apresentado', true)
   await cfgScene($, on, env, cfg, { v: 30_000 }, mem)
   await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
   await $.turn.complete(TURNO)
 }
-const ON = 'Sync_Relay auto: on'
-const OFF = 'Sync_Relay auto: off'
+const ON = 'sync_relay auto: on'
+const OFF = 'sync_relay auto: off'
 
 test('remembered: /relay button hides the button and a NEW session (same store) keeps it hidden', async ($, on) => {
   const mem = new Map<string, unknown>()
@@ -3240,9 +3240,9 @@ test('remembered: /relay auto is saved and a NEW session keeps it', async ($, on
   expect(await rotuloFixo($)).toBe(ON)
 })
 
-test('remembered: session env SYNCLABS_RELAY_BAND_AUTO beats the store', async ($, on) => {
+test('remembered: session env SYNC_RELAY_AUTO beats the store', async ($, on) => {
   const mem = new Map<string, unknown>([['auto', true]])
-  await lembrar($, on, null, mem, { SYNCLABS_RELAY_BAND_AUTO: '0' })
+  await lembrar($, on, null, mem, { SYNC_RELAY_AUTO: '0' })
   expect(await rotuloFixo($)).toBe(OFF)
   await $.command.run({ command: 'relay', args: 'auto' } as never) // session only: the store stays
   expect(mem.get('auto')).toBe(true)
@@ -3250,7 +3250,7 @@ test('remembered: session env SYNCLABS_RELAY_BAND_AUTO beats the store', async (
 
 test('model from the API: a 200K model switches at floor + 136k (166k), not 180k', async ($, on) => {
   const tokens = { v: 30_000 }
-  await cfgScene($, on, { SYNCLABS_RELAY_LANG: 'en' }, null, tokens, undefined, { modelo: 'claude-sonnet-4-6', janela: 200_000 })
+  await cfgScene($, on, { SYNC_RELAY_LANG: 'en' }, null, tokens, undefined, { modelo: 'claude-sonnet-4-6', janela: 200_000 })
   tokens.v = 165_000
   await $.turn.complete(TURNO)
   expect(await botaoTrocar($)).toBeUndefined()
@@ -3261,7 +3261,7 @@ test('model from the API: a 200K model switches at floor + 136k (166k), not 180k
 
 test('model from the API: a 1M model switches at 180k; threshold_tokens 300000 on a 200K model still stops at 166k', async ($, on) => {
   const tokens = { v: 30_000 }
-  await cfgScene($, on, { SYNCLABS_RELAY_LANG: 'en' }, null, tokens, undefined, { modelo: 'claude-opus-4-7', janela: 1_000_000 })
+  await cfgScene($, on, { SYNC_RELAY_LANG: 'en' }, null, tokens, undefined, { modelo: 'claude-opus-4-7', janela: 1_000_000 })
   tokens.v = 179_000
   await $.turn.complete(TURNO)
   expect(await botaoTrocar($)).toBeUndefined()
@@ -3272,7 +3272,7 @@ test('model from the API: a 1M model switches at 180k; threshold_tokens 300000 o
 
 test('threshold_tokens 300000 with a 200K model: the ceiling applies', async ($, on) => {
   const tokens = { v: 30_000 }
-  const env = { SYNCLABS_RELAY_LANG: 'en', SYNCLABS_RELAY_CONFIG: 'C:/cfg/config.json' }
+  const env = { SYNC_RELAY_LANG: 'en', SYNC_RELAY_CONFIG: 'C:/cfg/config.json' }
   await cfgScene($, on, env, '{"threshold_tokens":300000}', tokens, undefined, { modelo: 'claude-sonnet-4-6', janela: 200_000 })
   tokens.v = 165_000
   await $.turn.complete(TURNO)
@@ -3284,7 +3284,7 @@ test('threshold_tokens 300000 with a 200K model: the ceiling applies', async ($,
 
 test('env CLAUDE_CODE_AUTO_COMPACT_WINDOW, settings autoCompactWindow and the pct override move the compaction point', async ($, on) => {
   const tokens = { v: 30_000 }
-  const env: Record<string, string> = { SYNCLABS_RELAY_LANG: 'en', CLAUDE_CODE_AUTO_COMPACT_WINDOW: '150000' }
+  const env: Record<string, string> = { SYNC_RELAY_LANG: 'en', CLAUDE_CODE_AUTO_COMPACT_WINDOW: '150000' }
   await cfgScene($, on, env, null, tokens, undefined, { modelo: 'claude-opus-4-7' })
   tokens.v = 125_000 // floor 30k + 0.8 x 120k = 126k
   await $.turn.complete(TURNO)
@@ -3296,7 +3296,7 @@ test('env CLAUDE_CODE_AUTO_COMPACT_WINDOW, settings autoCompactWindow and the pc
 
 test('settings.json of CLAUDE_CONFIG_DIR: autoCompactWindow read; broken file ignored', async ($, on) => {
   const tokens = { v: 30_000 }
-  const env: Record<string, string> = { SYNCLABS_RELAY_LANG: 'en', CLAUDE_CONFIG_DIR: 'D:/cc' }
+  const env: Record<string, string> = { SYNC_RELAY_LANG: 'en', CLAUDE_CONFIG_DIR: 'D:/cc' }
   const c = await cfgScene($, on, env, null, tokens, undefined, { modelo: 'claude-opus-4-7', settings: '{"autoCompactWindow":150000}' })
   tokens.v = 126_000
   await $.turn.complete(TURNO)
@@ -3306,7 +3306,7 @@ test('settings.json of CLAUDE_CONFIG_DIR: autoCompactWindow read; broken file ig
 
 test('settings.json broken: ignored, the model default applies', async ($, on) => {
   const tokens = { v: 30_000 }
-  await cfgScene($, on, { SYNCLABS_RELAY_LANG: 'en' }, null, tokens, undefined, { modelo: 'claude-opus-4-7', settings: '{broken' })
+  await cfgScene($, on, { SYNC_RELAY_LANG: 'en' }, null, tokens, undefined, { modelo: 'claude-opus-4-7', settings: '{broken' })
   tokens.v = 126_000
   await $.turn.complete(TURNO)
   expect(await botaoTrocar($)).toBeUndefined()

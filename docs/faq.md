@@ -8,23 +8,23 @@ If there is no `python3` at all, the hooks fail on every event with a non-blocki
 
 ## Why is the command `/relay`?
 
-`/relay` is the band's command: it exists only on Claude Code with the band installed, and it carries the plugin's name so it does not clash with the commands you already have. Without the band, and on Codex, type the word `relay` as the whole message: it does the same (then `/clear` on Claude Code or `/new` on Codex).
+`/relay` is a Claude Code command (part of the plugin's mod), named after the plugin so it does not clash with the commands you already have. On Codex, type the word `relay` as the whole message: it does the same (then `/clear` on Claude Code or `/new` on Codex).
 
 ## Does it work on Codex?
 
-The plugin installs on Codex 0.170.0 and its hook was run directly, without a model, and denied a tool as expected. It was not tested in a real Codex session: the lock, the context warning and the handoff have not been seen working there. Codex also skips a plugin hook until you approve it: open the TUI, run `/hooks` and approve the Sync_Relay hooks. Until then nothing happens, and in `codex exec` the hooks are skipped silently.
+The plugin installs on Codex 0.170.0 and its hook was run directly, without a model, and denied a tool as expected. It was not tested in a real Codex session: the lock, the context warning and the handoff have not been seen working there. Codex also skips a plugin hook until you approve it: open the TUI, run `/hooks` and approve the sync_relay hooks. Until then nothing happens, and in `codex exec` the hooks are skipped silently.
 
 ## How do I turn it off?
 
-- One session: start the CLI with `SYNCLABS_RELAY_MODE=off`.
+- One session: start the CLI with `SYNC_RELAY_MODE=off`.
 - For good: `"mode": "off"` (or `"remind"`) in the config file.
-- Remove it. Claude Code: `claude plugin uninstall synclabs-relay@synclabs-relay`. Codex: `codex plugin remove synclabs-relay@synclabs-relay`.
+- Remove it. Claude Code: `claude plugin uninstall sync_relay@sync_relay`. Codex: `codex plugin remove sync_relay@sync_relay`.
 
-If you installed the band, remove or disable the band first (`claude plugin uninstall synclabs-relay-band@synclabs-relay`), then the core. The band depends on the core, so the core command fails with "still required by synclabs-relay-band" otherwise.
+It is one plugin now: a single uninstall removes the hooks and the mod.
 
-## How do I upgrade from 0.1.0?
+## How do I upgrade from 0.1.x?
 
-Update both plugins. What changed for you is in [CHANGELOG.md](../CHANGELOG.md), section "Upgrading from 0.1.0": `/handoff`, `handoff` and `passagem` stop working (use the word `relay`, or `/relay` if you have the band), and the old `threshold`, `limiar`, `botao` and `padrao` subcommands are gone (`/relay button` still exists).
+The product was renamed in 0.2.0 and the two plugins became one: it is not an update, it is a reinstall (steps in [CHANGELOG.md](../CHANGELOG.md), "Upgrading from 0.1.x"). For 0.1.0, what changed for you is in [CHANGELOG.md](../CHANGELOG.md), section "Upgrading from 0.1.0": `/handoff`, `handoff` and `passagem` stop working (use the word `relay`, or `/relay` on Claude Code), and the old `threshold`, `limiar`, `botao` and `padrao` subcommands are gone (`/relay button` still exists).
 
 ## A tool was denied in my main session. Is that a bug?
 

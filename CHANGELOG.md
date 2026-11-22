@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.2.0
+
+Rename and one plugin (breaking)
+- The product is now `sync_relay` (lowercase, with an underscore) everywhere: plugin, marketplace, script (`scripts/sync_relay.py`), environment variables, config and handoff folders, visible texts (`sync_relay: ...` in messages, the button `sync_relay auto: on/off`, pt-BR `ligado/desligado`) and the repository URL, `https://github.com/Sync-Labs-team/sync_relay`.
+- The core and the band are one plugin now. On Claude Code it carries the hooks and the mod (`/relay`, the button, the status line); Codex ignores the mod. There is no `-band` plugin and no dependency between plugins.
+- `claude plugin validate` accepts the name but warns that it is not kebab-case, so `--strict` no longer passes clean, and the claude.ai marketplace sync does not accept the name. Installing from the GitHub marketplace in the CLIs is not affected.
+- Environment variables: `SYNCLABS_RELAY_MODE`, `_LANG`, `_CONFIG` became `SYNC_RELAY_MODE`, `SYNC_RELAY_LANG`, `SYNC_RELAY_CONFIG`; `SYNCLABS_RELAY_BAND_AUTO` and `_BAND_THRESHOLD` became `SYNC_RELAY_AUTO` and `SYNC_RELAY_THRESHOLD`. The old names are not read.
+- Folders: config in `%APPDATA%\sync_relay\config.json` (macOS and Linux: `$XDG_CONFIG_HOME/sync_relay/config.json`, or `~/.config/sync_relay/`), handoffs in `%LOCALAPPDATA%\sync_relay\handoffs` (`$XDG_STATE_HOME/sync_relay/handoffs`, or `~/.local/state/sync_relay/handoffs`). On first use, if the new config does not exist and the old `synclabs-relay` one does, it is copied (the old one is left in place). Old handoffs are not moved.
+
+Tests: 90 for the hooks and script, 182 for the mod.
+
+Upgrading from 0.1.x
+1. Remove the old plugins: `claude plugin uninstall synclabs-relay-band@synclabs-relay`, then `claude plugin uninstall synclabs-relay@synclabs-relay`, then `claude plugin marketplace remove synclabs-relay`. On Codex: `codex plugin remove synclabs-relay@synclabs-relay` and `codex plugin marketplace remove synclabs-relay`.
+2. Install the new one: `claude plugin marketplace add Sync-Labs-team/sync_relay` and `claude plugin install sync_relay@sync_relay` (Codex: `codex plugin marketplace add Sync-Labs-team/sync_relay`, `codex plugin add sync_relay@sync_relay`; approve the hooks again in `/hooks`). Restart the CLI.
+3. Rename any `SYNCLABS_RELAY_*` variable you set to the `SYNC_RELAY_*` name above.
+4. Your config is copied on first use. Delete the old `synclabs-relay` folders when you like. The remembered `/relay auto` and `/relay button` choices are stored per plugin name and may start from the defaults again.
+
+
 ## 0.1.2
 
 Fixes after publishing 0.1.1

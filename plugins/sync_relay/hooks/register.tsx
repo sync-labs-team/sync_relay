@@ -3,33 +3,33 @@ import type { EngineInterface as Engine, Register, Timer } from 'claude-code'
 
 import type { PassagemFase } from '../types'
 
-const tokens = atom({ plugin: 'synclabs-relay-band', key: 'tokens' } as const, null)
+const tokens = atom({ plugin: 'sync_relay', key: 'tokens' } as const, null)
 // piso: menor contexto visto desde o session.start ou /clear (o que a sessao ja nasce carregando).
-const piso = atom({ plugin: 'synclabs-relay-band', key: 'piso' } as const, null)
-const adiado = atom({ plugin: 'synclabs-relay-band', key: 'adiado' } as const, null)
-const fase = atom({ plugin: 'synclabs-relay-band', key: 'fase' } as const, 'ocioso' as PassagemFase)
+const piso = atom({ plugin: 'sync_relay', key: 'piso' } as const, null)
+const adiado = atom({ plugin: 'sync_relay', key: 'adiado' } as const, null)
+const fase = atom({ plugin: 'sync_relay', key: 'fase' } as const, 'ocioso' as PassagemFase)
 // Modo automatico: ligado (persiste em $.store, chave 'auto'), sessao interativa e segundos que faltam na contagem.
-const auto = atom({ plugin: 'synclabs-relay-band', key: 'auto' } as const, false)
+const auto = atom({ plugin: 'sync_relay', key: 'auto' } as const, false)
 // Apresentacao unica da primeira instalacao: vista (persiste em $.store, chave 'apresentado'). O padrao do auto e desligado.
-const apresentado = atom({ plugin: 'synclabs-relay-band', key: 'apresentado' } as const, false)
-// Botao fixo "Sync_Relay auto" acima do campo (sem faixa): /relay button grava no $.store (chave 'botao') e vale em todas as
+const apresentado = atom({ plugin: 'sync_relay', key: 'apresentado' } as const, false)
+// Botao fixo "sync_relay auto" acima do campo (sem faixa): /relay button grava no $.store (chave 'botao') e vale em todas as
 // sessoes; sem nada no store vale a chave `button` do config.json (true se faltar).
-const botaoFixo = atom({ plugin: 'synclabs-relay-band', key: 'botao' } as const, true)
+const botaoFixo = atom({ plugin: 'sync_relay', key: 'botao' } as const, true)
 // ponto de auto-compactacao da CLI (C) e de onde veio; medido a cada turno (modelo, env e settings podem mudar).
-const compact = atom({ plugin: 'synclabs-relay-band', key: 'compact' } as const, null)
-const interativo = atom({ plugin: 'synclabs-relay-band', key: 'interativo' } as const, false)
-const restante = atom({ plugin: 'synclabs-relay-band', key: 'restante' } as const, 0)
+const compact = atom({ plugin: 'sync_relay', key: 'compact' } as const, null)
+const interativo = atom({ plugin: 'sync_relay', key: 'interativo' } as const, false)
+const restante = atom({ plugin: 'sync_relay', key: 'restante' } as const, 0)
 // A espera por agentes passou de 60 s: a faixa oferece "Trocar mesmo assim".
-const demorou = atom({ plugin: 'synclabs-relay-band', key: 'demorou' } as const, false)
+const demorou = atom({ plugin: 'sync_relay', key: 'demorou' } as const, false)
 // O $.state e por sessao (id): depois do /clear a sessao nova nasce com os padroes. Ate o iniciar() dela, nada e desenhado.
-const carregado = atom({ plugin: 'synclabs-relay-band', key: 'carregado' } as const, false)
+const carregado = atom({ plugin: 'sync_relay', key: 'carregado' } as const, false)
 
 // D of the switch rule (tokens above the session baseline, capped at 80% of the way to compaction: see pontoDeTroca).
-// Overridden by config `threshold_tokens` and, for one session, by SYNCLABS_RELAY_BAND_THRESHOLD.
+// Overridden by config `threshold_tokens` and, for one session, by SYNC_RELAY_THRESHOLD.
 export const LIMIAR_ACIMA = 150_000
 const LIMIAR_MIN = 5_000
 const LIMIAR_MAX = 900_000
-const limiar = atom({ plugin: 'synclabs-relay-band', key: 'limiar' } as const, LIMIAR_ACIMA)
+const limiar = atom({ plugin: 'sync_relay', key: 'limiar' } as const, LIMIAR_ACIMA)
 // "Depois" (e Cancelar) esconde a faixa ate o contexto crescer mais isto.
 const DE_NOVO = 50_000
 // Aviso antes da troca automatica, em segundos.
@@ -134,8 +134,8 @@ export function janela1m(modelo: string | undefined): boolean {
   if (m.includes('[1m]') || m.includes('fable')) return true
   const r = FAMILIA.exec(m)
   if (r === null) return false
-  const [maior, menor] = MIN_1M[r[1]]
-  const v = [Number(r[2]), Number(r[3] ?? 0)]
+  const [maior, menor] = MIN_1M[r[1]!]!
+  const v = [Number(r[2]), Number(r[3] ?? 0)] as [number, number]
   return v[0] > maior || (v[0] === maior && v[1] >= menor)
 }
 
@@ -178,26 +178,26 @@ export function pontoDeTroca(piso: number, d: number, c: number | null): number 
 export function defaultHandoffDir(windows: boolean, env: Env, home: string | null): string | null {
   if (windows) {
     const base = env.LOCALAPPDATA || (home ? `${home}\\AppData\\Local` : '')
-    return base ? `${base}\\synclabs-relay\\handoffs` : null
+    return base ? `${base}\\sync_relay\\handoffs` : null
   }
   const base = env.XDG_STATE_HOME || (home ? `${home}/.local/state` : '')
-  return base ? `${base}/synclabs-relay/handoffs` : null
+  return base ? `${base}/sync_relay/handoffs` : null
 }
 
-/** Config file: SYNCLABS_RELAY_CONFIG, else $XDG_CONFIG_HOME, else %APPDATA% (Windows), else ~/.config. */
+/** Config file: SYNC_RELAY_CONFIG, else $XDG_CONFIG_HOME, else %APPDATA% (Windows), else ~/.config. */
 export function configFile(windows: boolean, env: Env, home: string | null): string | null {
-  if (env.SYNCLABS_RELAY_CONFIG) return env.SYNCLABS_RELAY_CONFIG
+  if (env.SYNC_RELAY_CONFIG) return env.SYNC_RELAY_CONFIG
   const base = env.XDG_CONFIG_HOME || (windows ? env.APPDATA || (home ? `${home}\\AppData\\Roaming` : '') : home ? `${home}/.config` : '')
-  return base ? `${base}${windows ? '\\' : '/'}synclabs-relay${windows ? '\\' : '/'}config.json` : null
+  return base ? `${base}${windows ? '\\' : '/'}sync_relay${windows ? '\\' : '/'}config.json` : null
 }
 
 /** Same parse as the core script: pt, pt-br, pt_BR, pt-* -> pt-BR; en, en-*, en_* -> en (any case); else undefined. */
 function langConhecido(v: string | undefined): Lang | undefined {
   const m = /^(pt|en)(?:[-_].*)?$/is.exec(v ?? '')
-  return m ? (m[1].toLowerCase() === 'pt' ? 'pt-BR' : 'en') : undefined
+  return m ? (m[1]!.toLowerCase() === 'pt' ? 'pt-BR' : 'en') : undefined
 }
 
-/** Language: SYNCLABS_RELAY_LANG if it names one we know, then config `lang`, then the locale: pt* -> pt-BR, else en. */
+/** Language: SYNC_RELAY_LANG if it names one we know, then config `lang`, then the locale: pt* -> pt-BR, else en. */
 export function resolveLang(envLang: string | undefined, cfgLang: string | undefined, locale: string): Lang {
   return langConhecido(envLang) ?? langConhecido(cfgLang) ?? (locale.toLowerCase().startsWith('pt') ? 'pt-BR' : 'en')
 }
@@ -252,24 +252,24 @@ async function ambiente($: Engine): Promise<Ambiente> {
   const windows = info.platform === 'windows'
   // $.env.get needs a literal name at each call site (the engine lists the variables a module reads).
   const g = (v: string | undefined | Promise<string | undefined>): Promise<string | undefined> => Promise.resolve(v).then(x => x || undefined, () => undefined)
-  const [LOCALAPPDATA, APPDATA, XDG_STATE_HOME, XDG_CONFIG_HOME, HOME, USERPROFILE, SYNCLABS_RELAY_CONFIG, SYNCLABS_RELAY_LANG, SYNCLABS_RELAY_MODE, CLAUDE_CONFIG_DIR, CLAUDE_CODE_AUTO_COMPACT_WINDOW, CLAUDE_CODE_DISABLE_1M_CONTEXT, CLAUDE_AUTOCOMPACT_PCT_OVERRIDE] = await Promise.all([
+  const [LOCALAPPDATA, APPDATA, XDG_STATE_HOME, XDG_CONFIG_HOME, HOME, USERPROFILE, SYNC_RELAY_CONFIG, SYNC_RELAY_LANG, SYNC_RELAY_MODE, CLAUDE_CONFIG_DIR, CLAUDE_CODE_AUTO_COMPACT_WINDOW, CLAUDE_CODE_DISABLE_1M_CONTEXT, CLAUDE_AUTOCOMPACT_PCT_OVERRIDE] = await Promise.all([
     g($.env.get('LOCALAPPDATA')),
     g($.env.get('APPDATA')),
     g($.env.get('XDG_STATE_HOME')),
     g($.env.get('XDG_CONFIG_HOME')),
     g($.env.get('HOME')),
     g($.env.get('USERPROFILE')),
-    g($.env.get('SYNCLABS_RELAY_CONFIG')),
-    g($.env.get('SYNCLABS_RELAY_LANG')),
-    g($.env.get('SYNCLABS_RELAY_MODE')),
+    g($.env.get('SYNC_RELAY_CONFIG')),
+    g($.env.get('SYNC_RELAY_LANG')),
+    g($.env.get('SYNC_RELAY_MODE')),
     g($.env.get('CLAUDE_CONFIG_DIR')),
     g($.env.get('CLAUDE_CODE_AUTO_COMPACT_WINDOW')),
     g($.env.get('CLAUDE_CODE_DISABLE_1M_CONTEXT')),
     g($.env.get('CLAUDE_AUTOCOMPACT_PCT_OVERRIDE')),
   ])
   const env: Env = {
-    LOCALAPPDATA, APPDATA, XDG_STATE_HOME, XDG_CONFIG_HOME, HOME, USERPROFILE, SYNCLABS_RELAY_CONFIG, SYNCLABS_RELAY_LANG,
-    SYNCLABS_RELAY_MODE, CLAUDE_CONFIG_DIR, CLAUDE_CODE_AUTO_COMPACT_WINDOW, CLAUDE_CODE_DISABLE_1M_CONTEXT, CLAUDE_AUTOCOMPACT_PCT_OVERRIDE,
+    LOCALAPPDATA, APPDATA, XDG_STATE_HOME, XDG_CONFIG_HOME, HOME, USERPROFILE, SYNC_RELAY_CONFIG, SYNC_RELAY_LANG,
+    SYNC_RELAY_MODE, CLAUDE_CONFIG_DIR, CLAUDE_CODE_AUTO_COMPACT_WINDOW, CLAUDE_CODE_DISABLE_1M_CONTEXT, CLAUDE_AUTOCOMPACT_PCT_OVERRIDE,
   }
   const dados = await $.process.hookEnv().then(e => e.CLAUDE_PLUGIN_DATA, () => undefined)
   const from = (p: string | undefined, re: RegExp): string | null => re.exec(p ?? '')?.[1] ?? null
@@ -339,7 +339,7 @@ const MSG = {
     autoOff: 'Automatic switch off',
     buttonShown: 'Button visible.',
     buttonHidden: 'Button hidden. To show it again: /relay button.',
-    thisSession: ' (this session only (SYNCLABS_RELAY_BAND_*))',
+    thisSession: ' (this session only (SYNC_RELAY_*))',
     canceledKeep: 'Switch canceled; the handoff stays at {0}',
     opened: 'Handoff saved; new session opened.',
     statusLine: 'auto {0} · {1}',
@@ -375,15 +375,15 @@ const MSG = {
     waitingToWrite: 'Waiting for {0} {1} to write the handoff...',
     agentOneFinish: 'agent to finish',
     agentManyFinish: 'agents to finish',
-    intro: 'Session handoff: when the context grows {0}k above the start of the session, the band writes a handoff and opens a new session with it.',
+    intro: 'Session handoff: when the context grows {0}k above the start of the session, the mod writes a handoff and opens a new session with it.',
     introAutoOn: 'Automatic on: switches by itself after {0} s, and you can cancel. Off: you get the warning and decide.',
     introAutoOff: 'Automatic off: you get the warning and decide. On: switches by itself after {0} s, and you can cancel.',
     introHow: 'On/off: button above the input or /relay auto; /relay button hides the button.',
     gotIt: 'Got it',
     turnAutoOff: 'Turn auto off',
     turnAutoOn: 'Turn auto on',
-    autoButtonOn: 'Sync_Relay auto: on',
-    autoButtonOff: 'Sync_Relay auto: off',
+    autoButtonOn: 'sync_relay auto: on',
+    autoButtonOff: 'sync_relay auto: off',
     banner: 'Context at {0}k tokens (+{1}k above the start of the session): past the switch point.',
     switchSession: 'Switch session',
     later: 'Later',
@@ -400,7 +400,7 @@ const MSG = {
     autoOff: 'Troca automática desligada',
     buttonShown: 'Botão visível.',
     buttonHidden: 'Botão oculto. Para mostrar de novo: /relay button.',
-    thisSession: ' (só nesta sessão (SYNCLABS_RELAY_BAND_*))',
+    thisSession: ' (só nesta sessão (SYNC_RELAY_*))',
     canceledKeep: 'Troca cancelada; a passagem continua em {0}',
     opened: 'Passagem gravada; sessão nova aberta.',
     statusLine: 'auto {0} · {1}',
@@ -443,8 +443,8 @@ const MSG = {
     gotIt: 'Entendi',
     turnAutoOff: 'Desligar automático',
     turnAutoOn: 'Ligar automático',
-    autoButtonOn: 'Sync_Relay auto: ligado',
-    autoButtonOff: 'Sync_Relay auto: desligado',
+    autoButtonOn: 'sync_relay auto: ligado',
+    autoButtonOff: 'sync_relay auto: desligado',
     banner: 'Contexto em {0}k tokens (+{1}k acima do início da sessão): passou do ponto de troca.',
     switchSession: 'Trocar de sessão',
     later: 'Depois',
@@ -557,7 +557,7 @@ export function lerLimiar(txt: string): number | null {
 }
 const kt = (v: number): string => `${+(v / 1000).toFixed(1)}k`
 
-// Override for this session only, for tests: SYNCLABS_RELAY_BAND_THRESHOLD and SYNCLABS_RELAY_BAND_AUTO (1/0) read by $.env.get at session.start. Com
+// Override for this session only, for tests: SYNC_RELAY_THRESHOLD and SYNC_RELAY_AUTO (1/0) read by $.env.get at session.start. Com
 // valor valido, auto e limiar valem no modulo (sobrevive ao /clear, mesmo processo) e NADA disso vai ao $.store, que e de todas
 // as sessoes. Comando e botao mudam so este objeto.
 let sobre: { auto?: boolean; limiar?: number } | null = null
@@ -565,17 +565,17 @@ let sobre: { auto?: boolean; limiar?: number } | null = null
 const soSessao = (): string => (sobre?.auto !== undefined ? tx('thisSession') : '')
 
 async function lerSobrescrita($: Engine): Promise<void> {
-  const [l, a] = await Promise.all([$.env.get('SYNCLABS_RELAY_BAND_THRESHOLD'), $.env.get('SYNCLABS_RELAY_BAND_AUTO')])
+  const [l, a] = await Promise.all([$.env.get('SYNC_RELAY_THRESHOLD'), $.env.get('SYNC_RELAY_AUTO')])
   const o: { auto?: boolean; limiar?: number } = {}
   const ruim: string[] = []
   if (l !== undefined && l !== '') {
     const v = lerLimiar(l.trim().toLowerCase())
-    if (v === null) ruim.push(`SYNCLABS_RELAY_BAND_THRESHOLD="${l}"`)
+    if (v === null) ruim.push(`SYNC_RELAY_THRESHOLD="${l}"`)
     else o.limiar = v
   }
   if (a !== undefined && a !== '') {
     if (a.trim() === '1' || a.trim() === '0') o.auto = a.trim() === '1'
-    else ruim.push(`SYNCLABS_RELAY_BAND_AUTO="${a}"`)
+    else ruim.push(`SYNC_RELAY_AUTO="${a}"`)
   }
   for (const r of ruim) rastro($, `sobrescrita env ignorada: ${r} invalido`)
   sobre = o.auto === undefined && o.limiar === undefined ? null : o
@@ -588,7 +588,7 @@ async function textoStatus($: Engine): Promise<string> {
     read($, auto), read($, tokens), read($, piso), read($, limiar), read($, compact), read($, botaoFixo),
     ambiente($).catch((): Ambiente | null => null), pastaPassagens($).catch(() => null),
   ])
-  const modoEnv = amb?.env.SYNCLABS_RELAY_MODE
+  const modoEnv = amb?.env.SYNC_RELAY_MODE
   const modo = modoEnv && ['off', 'remind', 'enforce', 'force'].includes(modoEnv) ? modoEnv : (amb?.config.mode ?? 'enforce')
   const k = (v: number): number => Math.round(v / 1000)
   let troca = tx('measuring')
@@ -843,7 +843,7 @@ async function agora($: Engine): Promise<void> {
 
 /**
  * Cancelar a contagem (0.6.12): para a troca, adia 50k tokens como o Depois e DESLIGA o automatico (store; com a sobrescrita
- * SYNCLABS_RELAY_BAND_*, so a sessao). Mensagem da pessoa na contagem continua so adiando. Sem API documentada de tecla, o Esc nao existe.
+ * SYNC_RELAY_*, so a sessao). Mensagem da pessoa na contagem continua so adiando. Sem API documentada de tecla, o Esc nao existe.
  */
 async function cancelarContagem($: Engine): Promise<void> {
   // read() e assincrono: so uma chamada passa daqui (duplo clique), a flag e sincrona.
@@ -884,7 +884,7 @@ async function iniciarContagem($: Engine): Promise<void> {
   contagem = $.clock.every(1000, () => void tique($))
 }
 
-/** Grava o auto no atomo e no store (com a sobrescrita SYNCLABS_RELAY_BAND_*, so na sessao). */
+/** Grava o auto no atomo e no store (com a sobrescrita SYNC_RELAY_*, so na sessao). */
 async function guardarAuto($: Engine, valor: boolean): Promise<void> {
   await update($, auto, () => valor)
   if (sobre?.auto !== undefined) sobre.auto = valor
@@ -1002,7 +1002,7 @@ let carregouEmFalha = false
 /**
  * Estado de sessao: o $.state zera no /clear (sem session.start), entao session.start e o timer do session.end clear chamam
  * isto com sessao NOVA (piso e fase de partida). Turno e comando so completam o que falta (hot reload numa sessao aberta):
- * o interativo, o piso e a fase que a sessao ja tem ficam. Store ilegivel: padroes (ou SYNCLABS_RELAY_BAND_*), sem lancar.
+ * o interativo, o piso e a fase que a sessao ja tem ficam. Store ilegivel: padroes (ou SYNC_RELAY_*), sem lancar.
  */
 async function iniciar($: Engine, via: Via, ehInterativo = interativoModulo): Promise<void> {
   let falha: string | null = null
@@ -1035,7 +1035,7 @@ async function iniciar($: Engine, via: Via, ehInterativo = interativoModulo): Pr
   await update($, apresentado, () => visto)
   const botaoGuardado = (await doStore('botao')) ?? amb?.config.button ?? true
   await update($, botaoFixo, () => botaoGuardado)
-  lang = resolveLang(amb?.env.SYNCLABS_RELAY_LANG, amb?.config.lang, Intl.DateTimeFormat().resolvedOptions().locale)
+  lang = resolveLang(amb?.env.SYNC_RELAY_LANG, amb?.config.lang, Intl.DateTimeFormat().resolvedOptions().locale)
   const limite = sobre?.limiar ?? amb?.config.threshold ?? LIMIAR_ACIMA
   await update($, limiar, () => limite)
   await update($, carregado, () => true)

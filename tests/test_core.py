@@ -1,4 +1,4 @@
-"""Tests for plugins/synclabs-relay/scripts/synclabs-relay.py (the core of Sync_Relay).
+"""Tests for plugins/sync_relay/scripts/sync_relay.py (the core of sync_relay).
 
 Run from the repo root: python -I -m unittest
 Hooks run as subprocesses with the same command shape as hooks/*.json, in a sandbox: every user-level path
@@ -19,11 +19,11 @@ import unittest
 from pathlib import Path
 
 RAIZ = Path(__file__).resolve().parent.parent
-PLUGIN = RAIZ / "plugins" / "synclabs-relay"
-SCRIPT = PLUGIN / "scripts" / "synclabs-relay.py"
+PLUGIN = RAIZ / "plugins" / "sync_relay"
+SCRIPT = PLUGIN / "scripts" / "sync_relay.py"
 VET = json.loads((RAIZ / "tests" / "vectors" / "paths.json").read_text("utf-8"))
 CMD = ("import os,runpy;runpy.run_path(os.path.join(os.environ['CLAUDE_PLUGIN_ROOT'],'scripts',"
-       "'synclabs-relay.py'),run_name='__main__')")
+       "'sync_relay.py'),run_name='__main__')")
 CHAVES = ["reminder", "denied", "routing_header", "tier_lookup", "tier_judgment", "tier_build", "tier_hard",
           "tier_plan", "handoff_request", "handoff_injected", "stop_warning", "report_too_long", "detect_failed",
           "handoff_dir_unusable", "routing_cut"]
@@ -51,12 +51,12 @@ def tearDownModule():
 
 def rodar(cli, entrada, env=None, cfg=None, cru=None):
     e = {k: v for k, v in os.environ.items()
-         if not k.startswith(("SYNCLABS_RELAY_", "CLAUDE_CODE_", "CLAUDE_PID", "CLAUDE_CONFIG_DIR", "CLAUDE_AUTOCOMPACT_", "CODEX_HOME", "LC_", "LANG"))}
+         if not k.startswith(("SYNC_RELAY_", "CLAUDE_CODE_", "CLAUDE_PID", "CLAUDE_CONFIG_DIR", "CLAUDE_AUTOCOMPACT_", "CODEX_HOME", "LC_", "LANG"))}
     e.update(SBENV)
     e["CLAUDE_PLUGIN_ROOT"] = str(PLUGIN)
     cf = SB / "config.json"
     cf.write_bytes(cru if cru is not None else json.dumps({**BASE_CFG, **(cfg or {})}).encode("utf-8"))
-    e["SYNCLABS_RELAY_CONFIG"] = str(cf)
+    e["SYNC_RELAY_CONFIG"] = str(cf)
     e.update(env or {})
     dados = entrada if isinstance(entrada, bytes) else json.dumps(entrada, ensure_ascii=False).encode("utf-8")
     r = subprocess.run([sys.executable, "-I", "-c", CMD, cli], input=dados, capture_output=True, env=e, timeout=60, cwd=str(SB))
@@ -112,7 +112,7 @@ class Limpo(unittest.TestCase):
         shutil.rmtree(HD, ignore_errors=True)
 
 
-class Vetores(unittest.TestCase):  # contract shared with the band mod
+class Vetores(unittest.TestCase):  # contract shared with the mod
     def test_slug(self):
         for c in VET["slug_cases"]:
             self.assertEqual(relay.slug(c["cwd"], c["windows"]), c["slug"], c["name"])
@@ -137,7 +137,7 @@ class Vetores(unittest.TestCase):  # contract shared with the band mod
             self.assertIn("SECRET OF PROJECT A", ctx(rodar("codex", {**SS, "cwd": a, "transcript_path": tr})))
 
     def test_copia_embutida_no_band_igual_ao_json(self):  # the band test cannot read files: its copy must not drift
-        txt = (RAIZ / "plugins" / "synclabs-relay-band" / "band.test.tsx").read_text("utf-8")
+        txt = (RAIZ / "plugins" / "sync_relay" / "band.test.tsx").read_text("utf-8")
         m = re.search(r"^const vectors = (\{.*?^\})\s*$", txt, re.S | re.M)
         self.assertTrue(m)
         esperado = {k: v for k, v in VET.items() if k != "_comment"}
@@ -162,8 +162,8 @@ class Vetores(unittest.TestCase):  # contract shared with the band mod
                 got = relay.escolher_lang(v, {}, lambda: (loc, "x"))
                 self.assertEqual(got, outro if esperado == "locale" else esperado, (v, loc))
         # env wins only when it is a language we know; otherwise the config decides (same as the band)
-        self.assertEqual(relay.escolher_lang("pt", {"SYNCLABS_RELAY_LANG": "xx"}, lambda: ("en_US", "x")), "pt-BR")
-        self.assertEqual(relay.escolher_lang("en", {"SYNCLABS_RELAY_LANG": "PT_br"}, lambda: ("en_US", "x")), "pt-BR")
+        self.assertEqual(relay.escolher_lang("pt", {"SYNC_RELAY_LANG": "xx"}, lambda: ("en_US", "x")), "pt-BR")
+        self.assertEqual(relay.escolher_lang("en", {"SYNC_RELAY_LANG": "PT_br"}, lambda: ("en_US", "x")), "pt-BR")
 
     def test_handoff_dir(self):
         d = VET["handoff_dir"]["default"]
@@ -232,12 +232,12 @@ class GanchosDoCodex(Limpo):  # item 7: T6 measured only PLUGIN_ROOT and PLUGIN_
         return {ev: re.search(r'-c "(.*)" (claude|codex)$', v[0]["hooks"][0]["command"]).groups() for ev, v in h.items()}
 
     def roda(self, codigo, cli, var):
-        e = {k: v for k, v in os.environ.items() if not k.startswith(("CLAUDE_", "PLUGIN_", "SYNCLABS_RELAY_"))}
+        e = {k: v for k, v in os.environ.items() if not k.startswith(("CLAUDE_", "PLUGIN_", "SYNC_RELAY_"))}
         e.update(SBENV)
         e[var] = str(PLUGIN)
         cf = SB / "config.json"
         cf.write_text(json.dumps(BASE_CFG), "utf-8")
-        e["SYNCLABS_RELAY_CONFIG"] = str(cf)
+        e["SYNC_RELAY_CONFIG"] = str(cf)
         with tempfile.TemporaryDirectory() as t:
             ent = {**SS, "transcript_path": rollout(t, "codex-tui")}
             r = subprocess.run([sys.executable, "-I", "-c", codigo, cli], input=json.dumps(ent).encode(),
@@ -262,7 +262,7 @@ class GanchosDoCodex(Limpo):  # item 7: T6 measured only PLUGIN_ROOT and PLUGIN_
 class Trava(Limpo):  # scenarios 1-3
     def test_claude(self):
         self.assertTrue(negou(rodar("claude", PRE, CLI)))
-        self.assertIn("SYNCLABS_RELAY_MODE=off", rodar("claude", PRE, CLI)["hookSpecificOutput"]["permissionDecisionReason"])
+        self.assertIn("SYNC_RELAY_MODE=off", rodar("claude", PRE, CLI)["hookSpecificOutput"]["permissionDecisionReason"])
         self.assertIsNone(rodar("claude", {**PRE, "agent_id": "a1"}, CLI))
         self.assertIsNone(rodar("claude", PRE, {**CLI, "CLAUDE_CODE_ENTRYPOINT": "sdk-cli"}))
         for livre in ("Agent", "AskUserQuestion", "ToolSearch", "TodoWrite", "SendUserMessage", "TeamCreate"):
@@ -282,10 +282,10 @@ class Trava(Limpo):  # scenarios 1-3
 
     def test_force_e_off(self):
         sdk = {**CLI, "CLAUDE_CODE_ENTRYPOINT": "sdk-cli"}
-        self.assertTrue(negou(rodar("claude", PRE, {**sdk, "SYNCLABS_RELAY_MODE": "force"})))
-        self.assertIsNone(rodar("claude", {**PRE, "agent_id": "a1"}, {**sdk, "SYNCLABS_RELAY_MODE": "force"}))
-        self.assertIsNone(rodar("claude", PRE, {**CLI, "SYNCLABS_RELAY_MODE": "off"}))
-        self.assertTrue(negou(rodar("claude", PRE, {**CLI, "SYNCLABS_RELAY_MODE": "enforce"}, {"mode": "off"})))  # env wins
+        self.assertTrue(negou(rodar("claude", PRE, {**sdk, "SYNC_RELAY_MODE": "force"})))
+        self.assertIsNone(rodar("claude", {**PRE, "agent_id": "a1"}, {**sdk, "SYNC_RELAY_MODE": "force"}))
+        self.assertIsNone(rodar("claude", PRE, {**CLI, "SYNC_RELAY_MODE": "off"}))
+        self.assertTrue(negou(rodar("claude", PRE, {**CLI, "SYNC_RELAY_MODE": "enforce"}, {"mode": "off"})))  # env wins
 
     def test_remind_e_off(self):
         self.assertIsNone(rodar("claude", PRE, CLI, {"mode": "remind"}))
@@ -327,7 +327,7 @@ class Idioma(Limpo):  # scenario 5
     def test_cfg_e_env(self):
         self.assertEqual(ctx(rodar("claude", UPS, CLI, {"lang": "pt-BR"})), PT["reminder"])
         self.assertEqual(ctx(rodar("claude", UPS, CLI, {"lang": "en"})), EN["reminder"])
-        self.assertEqual(ctx(rodar("claude", UPS, {**CLI, "SYNCLABS_RELAY_LANG": "pt-BR"}, {"lang": "en"})), PT["reminder"])
+        self.assertEqual(ctx(rodar("claude", UPS, {**CLI, "SYNC_RELAY_LANG": "pt-BR"}, {"lang": "en"})), PT["reminder"])
         self.assertNotEqual(EN["reminder"], PT["reminder"])
 
     def test_auto_por_ambiente(self):
@@ -347,6 +347,39 @@ class Idioma(Limpo):  # scenario 5
     def test_chave_ausente_no_ptbr_cai_no_en(self):
         self.assertEqual(relay.mensagem({"x": "a"}, {"x": "b", "y": "c"}, "y"), "c")
         self.assertEqual(relay.mensagem({"x": "a"}, {"x": "b", "y": "c"}, "x"), "a")
+
+
+class MigracaoDaConfig(Limpo):  # 0.2.0: synclabs-relay/config.json is copied once to sync_relay/config.json
+    def _env(self):
+        base = SB / "mig"
+        shutil.rmtree(base, ignore_errors=True)
+        return {"XDG_CONFIG_HOME": str(base)}, base
+
+    def test_copia_a_antiga_no_primeiro_uso(self):
+        env, base = self._env()
+        (base / "synclabs-relay").mkdir(parents=True)
+        (base / "synclabs-relay" / "config.json").write_text('{"mode": "remind"}', "utf-8")
+        self.assertEqual(relay.ler_config(env, str(SB), False)["mode"], "remind")
+        self.assertEqual(json.loads((base / "sync_relay" / "config.json").read_text("utf-8")), {"mode": "remind"})
+        self.assertTrue((base / "synclabs-relay" / "config.json").exists())  # the old one stays
+
+    def test_a_nova_vence_e_nao_e_sobrescrita(self):
+        env, base = self._env()
+        for d, m in (("synclabs-relay", "remind"), ("sync_relay", "off")):
+            (base / d).mkdir(parents=True)
+            (base / d / "config.json").write_text('{"mode": "%s"}' % m, "utf-8")
+        self.assertEqual(relay.ler_config(env, str(SB), False)["mode"], "off")
+        self.assertEqual(json.loads((base / "sync_relay" / "config.json").read_text("utf-8"))["mode"], "off")
+
+    def test_sem_antiga_nao_cria_nada_e_config_explicita_nao_migra(self):
+        env, base = self._env()
+        base.mkdir(parents=True)
+        relay.ler_config(env, str(SB), False)
+        self.assertFalse((base / "sync_relay").exists())
+        (base / "synclabs-relay").mkdir()
+        (base / "synclabs-relay" / "config.json").write_text("{}", "utf-8")
+        relay.ler_config({**env, "SYNC_RELAY_CONFIG": str(base / "x.json")}, str(SB), False)
+        self.assertFalse((base / "sync_relay").exists())
 
 
 class Lembrete(Limpo):
@@ -719,7 +752,7 @@ class Juncao(Limpo):
         HD.mkdir(parents=True, exist_ok=True)
         arq = HD / (SA + ".md")
         arq.write_text("keep me", "utf-8")
-        env = {**SBENV, "SYNCLABS_RELAY_CONFIG": str(SB / "config.json"), "LANG": "en_US.UTF-8",
+        env = {**SBENV, "SYNC_RELAY_CONFIG": str(SB / "config.json"), "LANG": "en_US.UTF-8",
                "CLAUDE_CODE_ENTRYPOINT": "cli"}
         (SB / "config.json").write_text(json.dumps(BASE_CFG), "utf-8")
         with mock.patch.object(relay, "_u16", side_effect=RuntimeError("boom")):
@@ -733,7 +766,7 @@ class Juncao(Limpo):
         a = self.pede(self.A, "111", "state of A")
         m = HD / "_req-111.txt"
         nome, quando = m.read_text("utf-8"), os.stat(m).st_mtime_ns
-        env = {**SBENV, "SYNCLABS_RELAY_CONFIG": str(SB / "config.json"), "LANG": "en_US.UTF-8",
+        env = {**SBENV, "SYNC_RELAY_CONFIG": str(SB / "config.json"), "LANG": "en_US.UTF-8",
                "CLAUDE_CODE_ENTRYPOINT": "cli", "CLAUDE_PID": "111"}
         with mock.patch.object(relay, "_u16", side_effect=RuntimeError("boom")):
             saida, _ = relay.processar({**SS, "source": "clear", "session_id": "novo-1"}, "claude", env, str(SB),
@@ -753,7 +786,7 @@ class Juncao(Limpo):
         class Quebrado(io.StringIO):
             def write(self, s):
                 raise OSError("pipe closed")
-        env = {**SBENV, "SYNCLABS_RELAY_MODE": "force", "SYNCLABS_RELAY_CONFIG": str(SB / "config.json"),
+        env = {**SBENV, "SYNC_RELAY_MODE": "force", "SYNC_RELAY_CONFIG": str(SB / "config.json"),
                "LANG": "en_US.UTF-8", "CLAUDE_PID": "111"}
         entrada = io.TextIOWrapper(io.BytesIO(json.dumps({**SS, "source": "clear", "session_id": "novo-1"}).encode()))
         with mock.patch.dict(os.environ, env), mock.patch.object(sys, "stdin", entrada), \
@@ -788,7 +821,7 @@ class Juncao(Limpo):
         HD.mkdir(parents=True, exist_ok=True)
         arq.write_text("only once", "utf-8")
         (SB / "config.json").write_text(json.dumps(BASE_CFG), "utf-8")
-        env = {**SBENV, "SYNCLABS_RELAY_MODE": "force", "SYNCLABS_RELAY_CONFIG": str(SB / "config.json"),
+        env = {**SBENV, "SYNC_RELAY_MODE": "force", "SYNC_RELAY_CONFIG": str(SB / "config.json"),
                "LANG": "en_US.UTF-8"}
         saida, devolver = relay.processar({**SS, "source": "clear"}, "claude", env, str(SB), os.name == "nt")
         self.assertFalse(arq.exists())  # already claimed when processar returns
@@ -798,10 +831,10 @@ class Juncao(Limpo):
     def test_dois_codex_juntos_um_so_recebe(self):  # C5 under real concurrency
         with tempfile.TemporaryDirectory() as t:
             tr = rollout(t, "codex-tui")
-            e = {k: v for k, v in os.environ.items() if not k.startswith(("SYNCLABS_RELAY_", "CLAUDE_CODE_", "CLAUDE_PID"))}
+            e = {k: v for k, v in os.environ.items() if not k.startswith(("SYNC_RELAY_", "CLAUDE_CODE_", "CLAUDE_PID"))}
             cf = SB / "config.json"
             cf.write_text(json.dumps(BASE_CFG), "utf-8")
-            e.update({**SBENV, "CLAUDE_PLUGIN_ROOT": str(PLUGIN), "SYNCLABS_RELAY_CONFIG": str(cf)})
+            e.update({**SBENV, "CLAUDE_PLUGIN_ROOT": str(PLUGIN), "SYNC_RELAY_CONFIG": str(cf)})
             dados = json.dumps({**SS, "transcript_path": tr}).encode()
             for rodada in range(8):
                 HD.mkdir(parents=True, exist_ok=True)
@@ -821,7 +854,7 @@ class Juncao(Limpo):
         class Quebrado(io.StringIO):
             def write(self, s):
                 raise OSError("pipe closed")
-        env = {**SBENV, "SYNCLABS_RELAY_MODE": "force", "SYNCLABS_RELAY_CONFIG": str(SB / "config.json"),
+        env = {**SBENV, "SYNC_RELAY_MODE": "force", "SYNC_RELAY_CONFIG": str(SB / "config.json"),
                "LANG": "en_US.UTF-8"}
         (SB / "config.json").write_text(json.dumps(BASE_CFG), "utf-8")
         entrada = io.TextIOWrapper(io.BytesIO(json.dumps({**SS, "source": "clear"}).encode()))
@@ -935,7 +968,7 @@ class Stop(Limpo):
             self.assertIn("160k", msg)
             self.assertIn("+150k", msg)
             self.assertIn("switch point (160k)", msg)  # floor 10k + min(150k, 0.8 x (200k - 10k)): unknown model = 200K window
-            self.assertIn("Type relay (or /relay with the band)", msg)  # the word works without the band and on Codex
+            self.assertIn("Type relay (or /relay on Claude Code)", msg)  # the word works without the band and on Codex
             self.assertNotIn("Type: handoff", msg)
             self.assertIsNone(rodar("claude", {**STOP, "transcript_path": baixo}, CLI))
             self.assertIsNone(rodar("claude", {**STOP, "transcript_path": unico}, CLI))  # no floor: no warning
@@ -944,7 +977,7 @@ class Stop(Limpo):
             self.assertIsNone(rodar("claude", {**STOP, "transcript_path": alto, "agent_id": "a"}, CLI))
             self.assertIsNone(rodar("claude", {**STOP, "transcript_path": alto}, {**CLI, "CLAUDE_CODE_ENTRYPOINT": "sdk-cli"}))
             self.assertIsNotNone(rodar("claude", {**STOP, "transcript_path": baixo}, CLI, {"threshold_tokens": 100000}))
-            self.assertIsNotNone(rodar("claude", {**STOP, "transcript_path": alto}, {**CLI, "SYNCLABS_RELAY_MODE": "off"}))
+            self.assertIsNotNone(rodar("claude", {**STOP, "transcript_path": alto}, {**CLI, "SYNC_RELAY_MODE": "off"}))
             self.assertIsNone(rodar("claude", {**STOP, "transcript_path": os.path.join(t, "nope.jsonl")}, CLI))
 
     def test_subagente_rodando_adia_o_aviso(self):  # v0.1.1: format measured in claude -p 2.1.329 (Stop input)
@@ -987,7 +1020,7 @@ def modelo_claude(pasta, nome, totais, modelo):
     return p
 
 
-class PontoDeTroca(Limpo):  # v0.1.1: switch = floor + min(D, 0.8 x (C - floor)), shared vectors with the band
+class PontoDeTroca(Limpo):  # v0.1.1: switch = floor + min(D, 0.8 x (C - floor)), shared vectors with the mod
     CASOS = VET["compaction_cases"]["cases"]
 
     def test_vetores_compactacao_e_troca(self):
@@ -1093,7 +1126,7 @@ class Robustez(Limpo):
         for lixo in (b"{broken", b"[1,2]", b"", b'{"mode": 7, "threshold_tokens": "x", "routing": 3, "lang": []}'):
             self.assertTrue(negou(rodar("claude", PRE, CLI, cru=lixo)), lixo)  # defaults: enforce
             self.assertIsNotNone(rodar("claude", UPS, CLI, cru=lixo))
-        miss = rodar("claude", PRE, {**CLI, "SYNCLABS_RELAY_CONFIG": str(SB / "missing.json")})
+        miss = rodar("claude", PRE, {**CLI, "SYNC_RELAY_CONFIG": str(SB / "missing.json")})
         self.assertTrue(negou(miss))  # missing file: defaults
 
     def test_config_muito_aninhada_nao_desliga_a_trava(self):  # C2
@@ -1107,7 +1140,7 @@ class Robustez(Limpo):
         self.assertEqual(rodar("claude", {**PRE, "session_id": "s-2"}, env), {"systemMessage": EN["detect_failed"]})
         self.assertIsNone(rodar("claude", {**PRE, "session_id": "s-2", "tool_name": "Bash"}, env))
         self.assertIsNone(rodar("claude", {**PRE, "session_id": "s-3", "agent_id": "a"}, env))  # subagent: nothing to detect
-        self.assertIsNone(rodar("claude", {**PRE, "session_id": "s-4"}, {**env, "SYNCLABS_RELAY_MODE": "off"}))
+        self.assertIsNone(rodar("claude", {**PRE, "session_id": "s-4"}, {**env, "SYNC_RELAY_MODE": "off"}))
 
     def test_codex_sem_originator_avisa(self):
         with tempfile.TemporaryDirectory() as t:

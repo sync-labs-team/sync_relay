@@ -6,7 +6,7 @@ body:
     id: plugin
     attributes:
       label: Plugin version
-      description: Core, and the band if installed.
+      description: The plugin version.
     validations:
       required: true
   - type: input

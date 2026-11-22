@@ -140,18 +140,18 @@
         "env": {
           "LOCALAPPDATA": "C:\\Users\\alice\\AppData\\Local"
         },
-        "expected": "C:\\Users\\alice\\AppData\\Local\\synclabs-relay\\handoffs"
+        "expected": "C:\\Users\\alice\\AppData\\Local\\sync_relay\\handoffs"
       },
       "posix_xdg": {
         "env": {
           "XDG_STATE_HOME": "/home/alice/.state"
         },
-        "expected": "/home/alice/.state/synclabs-relay/handoffs"
+        "expected": "/home/alice/.state/sync_relay/handoffs"
       },
       "posix_home": {
         "env": {},
         "home": "/home/alice",
-        "expected": "/home/alice/.local/state/synclabs-relay/handoffs"
+        "expected": "/home/alice/.local/state/sync_relay/handoffs"
       }
     }
   },
