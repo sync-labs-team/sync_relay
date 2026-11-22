@@ -16,14 +16,16 @@ The plugin installs on Codex 0.170.0 and its hook was run directly, without a mo
 
 ## Why `sync-relay` in the install command and `sync_relay` everywhere else?
 
-The manifest name has to be kebab-case for the claude.ai marketplace sync and for `claude plugin validate --strict`, so the plugin and the marketplace are `sync-relay`. The product, the repository, the messages, the button, the `SYNC_RELAY_*` variables, the folders and the script keep `sync_relay`. The one visible difference is the prefix Claude Code draws on the status line: `sync-relay:`.
+The manifest name has to be kebab-case for the claude.ai marketplace sync and for `claude plugin validate --strict`, so the plugin is `sync-relay`. It is published in the Sync Labs catalog, `sync-labs` ([Sync-Labs-team/plugins](https://github.com/Sync-Labs-team/plugins)), hence `sync-relay@sync-labs`. The product, the repository, the messages, the button, the `SYNC_RELAY_*` variables, the folders and the script keep `sync_relay`. The one visible difference is the prefix Claude Code draws on the status line: `sync-relay:`.
+
+To install straight from this repository instead of the catalog, it carries its own catalog, `sync-relay`: `claude plugin marketplace add Sync-Labs-team/sync_relay` and `claude plugin install sync-relay@sync-relay` (Codex: `codex plugin marketplace add Sync-Labs-team/sync_relay` and `codex plugin add sync-relay@sync-relay`). Use one or the other, not both.
 
 ## How do I turn it off?
 
 - One session, no restart: type `/relay off` (Claude Code with the mod), or the whole message `relay off` (any setup, Codex too). `relay remind` keeps only the reminder, `relay on` brings the lock back. It lasts for that open session only and survives `/clear`.
 - One session, from outside: start the CLI with `SYNC_RELAY_MODE=off`.
 - For good: `"mode": "off"` (or `"remind"`) in the config file.
-- Remove it. Claude Code: `claude plugin uninstall sync-relay@sync-relay`. Codex: `codex plugin remove sync-relay@sync-relay`.
+- Remove it. Claude Code: `claude plugin uninstall sync-relay@sync-labs`. Codex: `codex plugin remove sync-relay@sync-labs`.
 
 It is one plugin now: a single uninstall removes the hooks and the mod.
 

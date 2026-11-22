@@ -11,15 +11,15 @@ Keeps your main coding session on orchestration, sends the work to subagents, an
 Claude Code:
 
 ```sh
-claude plugin marketplace add Sync-Labs-team/sync_relay
-claude plugin install sync-relay@sync-relay
+claude plugin marketplace add sync-labs-team/plugins
+claude plugin install sync-relay@sync-labs
 ```
 
 Codex (not tested in a real session, see [Supported CLIs](#supported-clis)):
 
 ```sh
-codex plugin marketplace add Sync-Labs-team/sync_relay
-codex plugin add sync-relay@sync-relay
+codex plugin marketplace add sync-labs-team/plugins
+codex plugin add sync-relay@sync-labs
 ```
 
 Needs Python 3.9 or newer as `python3`. On Claude Code the same plugin also adds the `/relay` command, a button and a status line. Upgrade, removal and common problems: [docs/faq.md](docs/faq.md).

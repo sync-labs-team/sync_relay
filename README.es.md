@@ -11,15 +11,15 @@ Mantiene la sesión principal solo en la orquestación, envía el trabajo a suba
 Claude Code:
 
 ```sh
-claude plugin marketplace add Sync-Labs-team/sync_relay
-claude plugin install sync-relay@sync-relay
+claude plugin marketplace add sync-labs-team/plugins
+claude plugin install sync-relay@sync-labs
 ```
 
 Codex (sin probar en una sesión real, ver [CLI compatibles](#cli-compatibles)):
 
 ```sh
-codex plugin marketplace add Sync-Labs-team/sync_relay
-codex plugin add sync-relay@sync-relay
+codex plugin marketplace add sync-labs-team/plugins
+codex plugin add sync-relay@sync-labs
 ```
 
 Necesita Python 3.9 o superior como `python3`. En Claude Code el mismo plugin también añade el comando `/relay`, un botón y una línea de estado. Actualización, desinstalación y problemas frecuentes: [docs/faq.md](docs/faq.md) (en inglés).
