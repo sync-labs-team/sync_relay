@@ -1,4 +1,4 @@
-"""Sync_Relay core: one hook script for Claude Code and Codex (`python3 synclabs-relay.py claude|codex`).
+"""sync_relay core: one hook script for Claude Code and Codex (`python3 sync_relay.py claude|codex`).
 
 The main interactive session only orchestrates; work goes to subagents. Standard library only, Python >= 3.9.
 
@@ -12,7 +12,7 @@ The main interactive session only orchestrates; work goes to subagents. Standard
   auto-compaction point (see compactacao); not while a subagent runs.
 - SubagentStop: asks once for a shorter report when it passes `report_max_chars`.
 
-Config: see README (file `synclabs-relay/config.json`; env SYNCLABS_RELAY_MODE / _LANG / _CONFIG win over it).
+Config: see README (file `sync_relay/config.json`; env SYNC_RELAY_MODE / _LANG / _CONFIG win over it).
 Any error: do nothing (fail open). Output is ASCII JSON: under a pipe the Windows stdout is cp1252.
 """
 import json
@@ -21,6 +21,7 @@ import ntpath
 import os
 import posixpath
 import re
+import shutil
 import stat
 import sys
 import time
@@ -32,7 +33,7 @@ LIVRES = {
     "TaskList", "TaskGet", "TaskStop", "TaskOutput", "ToolSearch", "Skill", "Workflow",
     "ReadNotifications", "ScheduleWakeup", "SendUserFile", "PushNotification", "EnterPlanMode",
     "ExitPlanMode", "CronCreate", "CronList", "CronDelete", "EndConversation", "TodoWrite",
-    "SendUserMessage", "TeamCreate",
+    "SendUserMessage", "TeamCreate", "SendFeedback",  # SendFeedback drafts a local report, sends nothing
     "REPL",  # Code Mode wrapper: each inner tools.X() call fires its own PreToolUse with the real name, still judged
     "Poll",  # Code Mode: waits for the result of the REPL or of a background agent
     # Codex
@@ -94,11 +95,11 @@ def _join(nt):
 
 
 def caminho_config(env, home, nt):
-    if env.get("SYNCLABS_RELAY_CONFIG"):
-        return env["SYNCLABS_RELAY_CONFIG"]
+    if env.get("SYNC_RELAY_CONFIG"):
+        return env["SYNC_RELAY_CONFIG"]
     j = _join(nt)
     base = env.get("XDG_CONFIG_HOME") or (env.get("APPDATA") if nt else None) or j(home, ".config")
-    return j(base, "synclabs-relay", "config.json")
+    return j(base, "sync_relay", "config.json")
 
 
 def _str_ou_none(v):
@@ -131,7 +132,24 @@ def mesclar(user):
     return c
 
 
+def migrar_config(env, home, nt):
+    """0.2.0: the product was renamed; copy the old config (synclabs-relay) to the new place once, never over a new one.
+    shortcut: runs on every read until the new file exists, drop it in 0.3.0."""
+    novo = caminho_config(env, home, nt)
+    if env.get("SYNC_RELAY_CONFIG") or os.path.exists(novo):
+        return
+    m = ntpath if nt else posixpath
+    antigo = m.join(m.dirname(m.dirname(novo)), "synclabs-relay", "config.json")
+    try:
+        if os.path.isfile(antigo):
+            os.makedirs(os.path.dirname(novo), exist_ok=True)
+            shutil.copyfile(antigo, novo)
+    except OSError:
+        pass  # cannot copy: the default config applies, as with any unreadable file
+
+
 def ler_config(env, home, nt):
+    migrar_config(env, home, nt)
     try:
         with open(caminho_config(env, home, nt), encoding="utf-8-sig") as f:  # utf-8-sig drops a BOM
             return mesclar(json.load(f))
@@ -140,7 +158,7 @@ def ler_config(env, home, nt):
 
 
 def modo(cfg, env):
-    m = env.get("SYNCLABS_RELAY_MODE")
+    m = env.get("SYNC_RELAY_MODE")
     return m if m in ("off", "remind", "enforce", "force") else cfg["mode"]
 
 
@@ -164,8 +182,8 @@ def handoff_dir(cfg, env, home, nt):
             return d  # anything else falls to the default folder
     j = _join(nt)
     if nt:
-        return j(env.get("LOCALAPPDATA") or j(home, "AppData", "Local"), "synclabs-relay", "handoffs")
-    return j(env.get("XDG_STATE_HOME") or j(home, ".local", "state"), "synclabs-relay", "handoffs")
+        return j(env.get("LOCALAPPDATA") or j(home, "AppData", "Local"), "sync_relay", "handoffs")
+    return j(env.get("XDG_STATE_HOME") or j(home, ".local", "state"), "sync_relay", "handoffs")
 
 
 # ---------- i18n ----------
@@ -177,7 +195,7 @@ def lang_conhecido(v):
 
 def escolher_lang(cfg_lang, env, getlocale=locale.getlocale):
     """The env var wins only if it names a language we know; then the config; then the system."""
-    for v in (env.get("SYNCLABS_RELAY_LANG"), cfg_lang):
+    for v in (env.get("SYNC_RELAY_LANG"), cfg_lang):
         if lang_conhecido(v):
             return lang_conhecido(v)
     for k in ("LC_ALL", "LC_MESSAGES", "LANG"):  # POSIX precedence; the first one set wins
@@ -709,7 +727,7 @@ def processar(d, cli, env, home, nt):
     # the handoff Write is allowed in any mode: it only reaches this session's own handoff file
     if evento == "PreToolUse" and cli == "claude" and permite_passagem(d, pasta, env):
         return {"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "allow",
-                                       "permissionDecisionReason": "Sync_Relay: this session's own handoff file"}}, None
+                                       "permissionDecisionReason": "sync_relay: this session's own handoff file"}}, None
     tipo = tipo_sessao(d, cli, cfg, env, m == "force", ignorar_sub=evento == "SubagentStop")
     t = Textos(escolher_lang(cfg["lang"], env))
     aviso = None

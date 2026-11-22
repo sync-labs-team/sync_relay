@@ -6,7 +6,7 @@ body:
     id: plugin
     attributes:
       label: Plugin version
-      description: Core, and the band if installed (for example "synclabs-relay 0.1.1, band 0.1.1").
+      description: The plugin version (for example "sync_relay 0.2.0").
     validations:
       required: true
   - type: input

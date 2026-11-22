@@ -19,9 +19,9 @@ When a main session starts, resumes, clears or compacts, the plugin injects a ta
 
 ## The handoff
 
-1. `relay` (the whole message; without the band `/relay` is not a command) or `/relay` with the band.
+1. `relay` (the whole message; on Codex `/relay` is not a command) or `/relay` on Claude Code.
 2. The hook tells the model to write the state to a Markdown file of at most 8,000 characters, in your language: your request, state, decisions, where everything is, what does not carry over by itself, numbered next steps, risks. On Claude Code the model writes it itself; on Codex it delegates the write to a subagent that inherits the context.
-3. You start the new session: `/clear` in Claude Code, `/new` in Codex. With the band, it does that for you.
+3. You start the new session: `/clear` in Claude Code, `/new` in Codex. On Claude Code with `/relay`, it does that for you.
 4. The `SessionStart` hook of the new session puts the file in its context.
 
 Delivery rules:
@@ -36,7 +36,7 @@ File names are `<readable part>-<h8>`, plus `-<first 8 characters of the session
 
 ### Permission for the handoff write
 
-On Claude Code, the core pre-approves one tool call: the `Write` of the session's own handoff file. All of these must hold: the main session; a valid `CLAUDE_PID` and a `_req-<PID>.txt` marker at most 10 minutes old; the path equals `<folder>/<name in the marker>`, with no `..` and no NTFS alternate stream; the folder is safe and the target is not a link; at most 8,000 characters. It applies in every mode. Your `deny` and `ask` rules still apply. Any other write follows the normal permission flow.
+On Claude Code, the plugin pre-approves one tool call: the `Write` of the session's own handoff file. All of these must hold: the main session; a valid `CLAUDE_PID` and a `_req-<PID>.txt` marker at most 10 minutes old; the path equals `<folder>/<name in the marker>`, with no `..` and no NTFS alternate stream; the folder is safe and the target is not a link; at most 8,000 characters. It applies in every mode. Your `deny` and `ask` rules still apply. Any other write follows the normal permission flow.
 
 ## The switch point
 
@@ -50,11 +50,11 @@ floor + min(D, 0.8 x (C - floor))
 - `floor` is the token count of the session's first response. It is measured, not read from a file: it is everything the CLI loaded at the start (system prompt, tool definitions, MCP servers, skills, memory, and files such as CLAUDE.md and AGENTS.md).
 - `C` is the CLI's auto-compaction point. Claude Code: `CLAUDE_CODE_AUTO_COMPACT_WINDOW`, else `autoCompactWindow` in settings, else the model's window (1M: 967k; 200K: 200k; `CLAUDE_CODE_DISABLE_1M_CONTEXT` forces 200K); `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE` can lower it. Codex: `model_auto_compact_token_limit` in `config.toml`; absent means no ceiling and `D` applies alone.
 
-With a floor of 30k: Claude on a 1M window switches at 180k; Claude on 200K at 166k; Codex with a limit of 120k at 102k. `/relay status` shows the current number and where `C` came from. The core warns at the `Stop` hook; the band shows the same point in its status line and, with auto on, switches by itself.
+With a floor of 30k: Claude on a 1M window switches at 180k; Claude on 200K at 166k; Codex with a limit of 120k at 102k. `/relay status` shows the current number and where `C` came from. The `Stop` hook warns; the mod shows the same point in its status line and, with auto on, switches by itself.
 
 ## The safe switch
 
-- The switch waits for a subagent that has not reported back. The band does not start counting while an agent is alive, and the `Stop` warning waits for the turn the report brings. A background shell command does not hold it, since a server may never end.
+- The switch waits for a subagent that has not reported back. The mod does not start counting while an agent is alive, and the `Stop` warning waits for the turn the report brings. A background shell command does not hold it, since a server may never end.
 - The handoff carries what `/clear` does not keep intact. Measured in `claude -p` 2.1.329: `/clear` drops an active `/goal`, keeps scheduled tasks (`CronList`) and keeps background work running, with its notices arriving in the new session. So the file holds the goal's condition word for word, each scheduled task (id, schedule, prompt, so the new session does not create it twice) and each background command or agent still running (id, what it does, output file).
 - If the handoff comes back from a failed delivery, the marker comes back with it, so the next `/clear` still gets it.
 
@@ -74,13 +74,13 @@ Hook cost, measured: 50 `PreToolUse` calls through Git Bash on Windows, with `py
 - The hooks read the transcript (Claude Code) or the rollout (Codex) of the current session, only for token counts, the model id (Claude Code) and, on Codex, `originator` and `source` in the first line. They never print or store the rest.
 - The handoff file holds what the model wrote about your work, which may include client or project details. It stays in a folder under your own user profile, never in your repository. On macOS and Linux the plugin keeps the default folder at mode `0700`; a folder you set in `handoff_dir` keeps its permissions. The plugin refuses a folder that is a symlink or belongs to another user.
 - Files older than 7 days are deleted when a session starts, only with names the plugin writes: `_req-N.txt`, `_detect-*.flag` and `_trace-<8hex>.md` in any folder; the handoff `.md` files only in the default folder.
-- The band keeps a small trace file per session in the handoff folder (`_trace-<id8>.md`: events and timing, the last 200 lines, never the handoff text).
+- The mod keeps a small trace file per session in the handoff folder (`_trace-<id8>.md`: events and timing, the last 200 lines, never the handoff text).
 
 ## Known limits
 
 - Codex support is untested: the plugin installs and its hook was checked without a model, but the lock, the warning and the handoff have not been seen working in a real Codex session. Codex runs plugin hooks only after you approve them in `/hooks`; unapproved hooks fail silently.
-- The lock depends on signals the CLIs do not document (`CLAUDE_CODE_ENTRYPOINT`, `agent_id`, the Codex `originator` and `source`). A CLI update can change them. If the plugin cannot read the signal, the lock is off for that session; if `agent_id` disappears, subagents would be denied: set `SYNCLABS_RELAY_MODE=off` until the plugin is updated.
+- The lock depends on signals the CLIs do not document (`CLAUDE_CODE_ENTRYPOINT`, `agent_id`, the Codex `originator` and `source`). A CLI update can change them. If the plugin cannot read the signal, the lock is off for that session; if `agent_id` disappears, subagents would be denied: set `SYNC_RELAY_MODE=off` until the plugin is updated.
 - Claude Code handoffs in a directory can be read by Codex for 30 minutes.
-- A `handoff_dir` that passes the rule but cannot be used (a link or a junction) is not noticed by the band: the core falls back to the default folder and the two look at different folders. Use a plain folder of your own.
-- The band uses the Claude Code mods API, which is in early access and can change. It sees agents only, not background shell commands; the handoff file carries those.
+- A `handoff_dir` that passes the rule but cannot be used (a link or a junction) is not noticed by the mod: the script falls back to the default folder and the two look at different folders. Use a plain folder of your own.
+- The mod uses the Claude Code mods API, which is in early access and can change. It sees agents only, not background shell commands; the handoff file carries those.
 - Only Windows was tested.

@@ -1,12 +1,12 @@
 name: Feature request
-description: Something that would make Sync_Relay simpler, faster or more useful.
+description: Something that would make sync_relay simpler, faster or more useful.
 labels: [enhancement]
 body:
   - type: input
     id: plugin
     attributes:
       label: Plugin version
-      description: Core, and the band if installed.
+      description: The plugin version.
     validations:
       required: true
   - type: input

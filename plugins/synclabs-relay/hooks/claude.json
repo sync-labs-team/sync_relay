@@ -1,9 +1,0 @@
-{
-  "hooks": {
-    "SessionStart": [{ "matcher": "startup|resume|clear|compact", "hooks": [{ "type": "command", "command": "python3 -I -c \"import os,runpy;runpy.run_path(os.path.join(os.environ['CLAUDE_PLUGIN_ROOT'],'scripts','synclabs-relay.py'),run_name='__main__')\" claude", "timeout": 10 }] }],
-    "UserPromptSubmit": [{ "hooks": [{ "type": "command", "command": "python3 -I -c \"import os,runpy;runpy.run_path(os.path.join(os.environ['CLAUDE_PLUGIN_ROOT'],'scripts','synclabs-relay.py'),run_name='__main__')\" claude", "timeout": 10 }] }],
-    "PreToolUse": [{ "hooks": [{ "type": "command", "command": "python3 -I -c \"import os,runpy;runpy.run_path(os.path.join(os.environ['CLAUDE_PLUGIN_ROOT'],'scripts','synclabs-relay.py'),run_name='__main__')\" claude", "timeout": 10 }] }],
-    "Stop": [{ "hooks": [{ "type": "command", "command": "python3 -I -c \"import os,runpy;runpy.run_path(os.path.join(os.environ['CLAUDE_PLUGIN_ROOT'],'scripts','synclabs-relay.py'),run_name='__main__')\" claude", "timeout": 10 }] }],
-    "SubagentStop": [{ "hooks": [{ "type": "command", "command": "python3 -I -c \"import os,runpy;runpy.run_path(os.path.join(os.environ['CLAUDE_PLUGIN_ROOT'],'scripts','synclabs-relay.py'),run_name='__main__')\" claude", "timeout": 10 }] }]
-  }
-}

@@ -1,6 +1,6 @@
 {
   "reminder": "[relay] A sessão principal só orquestra: tudo que precisa de ferramenta (ler, buscar, rodar, escrever, web, MCP) vai a um subagente, pela tabela de delegação do início da sessão. Pergunta que não precisa de ferramenta: responda direto.",
-  "denied": "Sync_Relay: a sessão principal só orquestra e esta ferramenta é trabalho. Delegue a um subagente (Claude: Agent; Codex: spawn_agent) pela tabela de delegação. Para desligar a trava numa sessão, abra o CLI com SYNCLABS_RELAY_MODE=off; para deixar desligada, ponha \"mode\" como \"remind\" ou \"off\" no arquivo de configuração.",
+  "denied": "sync_relay: a sessão principal só orquestra e esta ferramenta é trabalho. Delegue a um subagente (Claude: Agent; Codex: spawn_agent) pela tabela de delegação. Para desligar a trava numa sessão, abra o CLI com SYNC_RELAY_MODE=off; para deixar desligada, ponha \"mode\" como \"remind\" ou \"off\" no arquivo de configuração.",
   "routing_header": "[relay] Tabela de delegação. Chame {tool} com:\n{tiers}\nPeça a cada subagente: o que fez, a decisão, a evidência, o que ficou; no máximo {max} caracteres; detalhe longo vai para arquivo e volta só o caminho.",
   "tier_lookup": "- consultar, ler, buscar: {spec}",
   "tier_judgment": "- julgamento técnico, resumo, comparar opções: {spec}",
@@ -12,9 +12,9 @@
   "handoff_how_codex": "Delegue a escrita a um subagente que herde este contexto (spawn_agent com fork_context).",
   "handoff_injected": "[passagem] Esta sessão continua uma anterior. Passagem ({file}):\n\n",
   "handoff_cut": "\n\n[passagem cortada] Texto completo no arquivo {file} (a sessão principal não lê arquivo: peça a um subagente que leia).",
-  "stop_warning": "Contexto em {total}k tokens (+{extra}k acima do início desta sessão): passou do ponto de troca ({limit}k). Digite relay (ou /relay com o band). Depois abra sessão nova (Claude: /clear; Codex: /new): ela já começa com a passagem.",
+  "stop_warning": "Contexto em {total}k tokens (+{extra}k acima do início desta sessão): passou do ponto de troca ({limit}k). Digite relay (ou /relay no Claude Code). Depois abra sessão nova (Claude: /clear; Codex: /new): ela já começa com a passagem.",
   "report_too_long": "Seu relatório passou de {max} caracteres. Mande de novo em até {max}: o que fez, a decisão, a evidência, o que ficou. Detalhe longo vai para um arquivo, e você passa só o caminho.",
-  "detect_failed": "Sync_Relay: trava desligada. Não deu para saber se esta sessão é interativa (o CLI não expôs o sinal), então nenhuma ferramenta é bloqueada. Use SYNCLABS_RELAY_MODE=force para forçar a trava.",
-  "handoff_dir_unusable": "Sync_Relay: não deu para criar a pasta de passagens (a configurada e a padrão estão inutilizáveis), então a passagem não foi pedida. Defina \"handoff_dir\" com um caminho absoluto gravável no arquivo de configuração.",
+  "detect_failed": "sync_relay: trava desligada. Não deu para saber se esta sessão é interativa (o CLI não expôs o sinal), então nenhuma ferramenta é bloqueada. Use SYNC_RELAY_MODE=force para forçar a trava.",
+  "handoff_dir_unusable": "sync_relay: não deu para criar a pasta de passagens (a configurada e a padrão estão inutilizáveis), então a passagem não foi pedida. Defina \"handoff_dir\" com um caminho absoluto gravável no arquivo de configuração.",
   "routing_cut": "[tabela de roteamento cortada] Não coube junto com a passagem no limite de contexto."
 }

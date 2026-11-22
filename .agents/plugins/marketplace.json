@@ -1,10 +1,10 @@
 {
-  "name": "synclabs-relay",
-  "interface": { "displayName": "Sync_Relay by Sync_Labs" },
+  "name": "sync_relay",
+  "interface": { "displayName": "sync_relay by Sync_Labs" },
   "plugins": [
     {
-      "name": "synclabs-relay",
-      "source": { "source": "local", "path": "./plugins/synclabs-relay" },
+      "name": "sync_relay",
+      "source": { "source": "local", "path": "./plugins/sync_relay" },
       "policy": { "installation": "AVAILABLE", "authentication": "ON_INSTALL" },
       "category": "Developer Tools"
     }
