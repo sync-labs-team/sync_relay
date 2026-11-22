@@ -2,7 +2,7 @@
 
 English | [Português](README.pt-BR.md) | [Español](README.es.md)
 
-![License: MIT](https://img.shields.io/badge/license-MIT-blue) ![Version 0.1.2](https://img.shields.io/badge/version-0.1.2-informational) ![CLI: Claude Code | Codex (untested)](https://img.shields.io/badge/CLI-Claude%20Code%20%7C%20Codex%20(untested)-lightgrey)
+![License: MIT](https://img.shields.io/badge/license-MIT-blue) ![Version 0.2.0](https://img.shields.io/badge/version-0.2.0-informational) ![CLI: Claude Code | Codex (untested)](https://img.shields.io/badge/CLI-Claude%20Code%20%7C%20Codex%20(untested)-lightgrey)
 
 Keeps your main coding session on orchestration, sends the work to subagents, and moves a long session to a fresh one with a handoff file before the context gets expensive.
 

@@ -2,7 +2,7 @@
 
 [English](README.md) | [Português](README.pt-BR.md) | Español
 
-![License: MIT](https://img.shields.io/badge/license-MIT-blue) ![Version 0.1.2](https://img.shields.io/badge/version-0.1.2-informational) ![CLI: Claude Code | Codex (untested)](https://img.shields.io/badge/CLI-Claude%20Code%20%7C%20Codex%20(sin%20probar)-lightgrey)
+![License: MIT](https://img.shields.io/badge/license-MIT-blue) ![Version 0.2.0](https://img.shields.io/badge/version-0.2.0-informational) ![CLI: Claude Code | Codex (untested)](https://img.shields.io/badge/CLI-Claude%20Code%20%7C%20Codex%20(sin%20probar)-lightgrey)
 
 Mantiene la sesión principal solo en la orquestación, envía el trabajo a subagentes y pasa una sesión larga a una nueva, con un archivo de traspaso, antes de que el contexto salga caro.
 

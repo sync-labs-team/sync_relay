@@ -2,7 +2,7 @@
 
 [English](README.md) | Português | [Español](README.es.md)
 
-![License: MIT](https://img.shields.io/badge/license-MIT-blue) ![Version 0.1.2](https://img.shields.io/badge/version-0.1.2-informational) ![CLI: Claude Code | Codex (untested)](https://img.shields.io/badge/CLI-Claude%20Code%20%7C%20Codex%20(n%C3%A3o%20testado)-lightgrey)
+![License: MIT](https://img.shields.io/badge/license-MIT-blue) ![Version 0.2.0](https://img.shields.io/badge/version-0.2.0-informational) ![CLI: Claude Code | Codex (untested)](https://img.shields.io/badge/CLI-Claude%20Code%20%7C%20Codex%20(n%C3%A3o%20testado)-lightgrey)
 
 Mantém a sessão principal só na orquestração, manda o trabalho para subagentes e passa uma sessão longa para uma nova, com um arquivo de passagem, antes de o contexto ficar caro.
 
