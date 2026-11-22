@@ -53,7 +53,7 @@ On Claude Code, `/relay` does steps 2 and 3 for you, and `/relay auto` does them
 | `/relay remind` | Only the reminder for this session; nothing is blocked. |
 | `/relay on` | The lock back on for this session. |
 | `relay` | The whole message. Same as `/relay`, and the way to do it on Codex (then `/new`). |
-| `relay off`, `relay remind`, `relay on` | The whole message (case ignored, a leading `/` allowed). Same as the three commands above; this is how to do it without the mod and on Codex. Only you can trigger it: the model cannot. |
+| `relay off`, `relay remind`, `relay on` | The whole message (case ignored, a leading `/` allowed). Same as the three commands above; this is how to do it without the mod and on Codex. It comes from your own message, never from a tool call; a scheduled prompt (`/loop`) cannot be told apart from one you typed. |
 
 Any other argument prints the usage. The status line next to your own reads like `sync-relay: auto off · 45k of 150k` (or `measuring`, `switching…`).
 
@@ -83,7 +83,7 @@ One JSON file for both CLIs: `%APPDATA%\sync_relay\config.json` on Windows, `~/.
 
 To turn the lock off for one session, type `/relay off` (or just `relay off`). No restart.
 
-The main session may also run a few harmless commands (`git status`, `ls`, `cat` of a small file, `* status`...) and `Read` a small file. That list is only a seed in `read_commands`; replace it, extend it, or empty it with `[]`. A repository can add its own with `.claude/sync_relay.json`. The one fixed rule: the whole command must be ONE simple command, with no `|`, `;`, `&`, redirection, backtick, `$` or line break. Details: [docs/configuration.md](docs/configuration.md).
+The main session may also run a few harmless commands (`git status`, `ls`, `cat` of a small file...) and `Read` a small file. That list is only a seed in `read_commands`; replace it, extend it, or empty it with `[]`. A repository can add its own with `.claude/sync_relay.json`. The one fixed rule: the whole command must be ONE simple command, with no `|`, `;`, `&`, redirection, backtick, `$`, line break, quote, backslash or glob, and the first word of a pattern is literal. `cat`, `head` and `tail` only read an existing regular file within the size limit. Details: [docs/configuration.md](docs/configuration.md).
 
 ## How it works
 

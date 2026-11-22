@@ -44,7 +44,7 @@ The seed:
 "read_commands": [
   "git status", "git status *", "git log", "git log *",
   "git diff --stat", "git diff --stat *", "git diff --name-only", "git diff --name-only *",
-  "git branch", "ls", "ls *", "pwd", "cat *", "head *", "tail *", "* status", "* --version",
+  "git branch", "git branch --show-current", "ls", "ls *", "pwd", "cat *", "head *", "tail *", "git --version",
   "!-o", "!--ou*", "!-f*", "!-F*", "!-[!-]*f*", "!-[!-]*F*", "!--follow*"
 ]
 ```
@@ -54,11 +54,11 @@ How a pattern reads (the whole command, token by token, split on spaces):
 - a token is matched like a shell glob (`*`, `?`, `[...]`), case-sensitive;
 - `*` alone is one word; as the last token (after other tokens) it is one or more words, so `ls *` needs an argument and `ls` is listed on its own;
 - `!x` is a veto: the command is refused when any argument matches `x`. The seed vetoes the flags that write a file (`-o`, `--output`) or never end (`-f`, `-F`, `--follow`, also inside `-nf`). A consequence: `ls -F` is refused too. Veto entries only apply to `read_commands`, not to the repository file;
-- a pattern with no literal character (`*`, `* *`) is ignored.
+- the FIRST word of a pattern is always literal (no `*`, `?`, `[`): a pattern with a wildcard there (`* status`, `[a-z]* *`) is ignored, with a notice at session start. It would free any program. This holds for `read_commands` and for the repository file.
 
-`* status` and `* --version` are broad on purpose (`docker status`, `node --version`) and also match `rm status`. Narrow them if that worries you.
+The seed has no pattern with a wildcard in the first word, so nothing like `rm status` gets through. Add your own commands one by one (`docker ps`, `cargo xtask ci *`).
 
-The one fixed rule is structural and holds for `read_commands` and for the repository file: the whole command must be ONE simple command. A command with any of `|`, `;`, `&` (so also `&&`, `||` and a trailing `&`), `<`, `>`, a backtick, `$` (so `$(`), `(`, `)` or a line break is refused, even inside quotes (there is no quote parsing, on purpose). `cat`, `head` and `tail` also need at least one file argument and every file argument that exists must be a regular file of at most `read_max_kb` KB; a file that does not exist is left to fail on its own.
+The one fixed rule is structural and holds for `read_commands` and for the repository file: the whole command must be ONE simple command. A command with any of `|`, `;`, `&` (so also `&&`, `||` and a trailing `&`), `<`, `>`, a backtick, `$` (so `$(`), `(`, `)`, a line break, `'`, `"`, `\`, `~`, `*`, `?`, `[`, `]`, `{` or `}` is refused, even inside quotes (there is no quote parsing, on purpose: after this check the split on spaces is exact, so a veto cannot be hidden by quotes or a backslash). A side effect: `HEAD~1` and quoted names are refused. `cat`, `head` and `tail` also need at least one file argument, and EVERY argument that is not an option must be an existing regular file (resolved from the hook's working directory; a device, a folder, a link to a device, a missing path or a path Python cannot see is refused) of at most `read_max_kb` KB. The number after `-n` or `-c` is not a file. `head -c N` with N above `read_max_kb` x 1024 is refused. On Windows write paths with `/`: a backslash is refused.
 
 `Read` is let through when the file is at most `read_max_kb` KB (or does not exist), or when the call has a `limit` of at most `read_max_lines`.
 
@@ -72,13 +72,13 @@ Put this in the working directory or in a parent up to the git root (without a g
 { "allowed_commands": ["cargo xtask ci", "cargo xtask ci *"] }
 ```
 
-Same pattern format and same structural rule, whole command, no `!` entries. The file only loosens: it lets these Bash commands through in the main session and can never tighten anything. The first time it frees something in a session you get one notice: `sync_relay: <repo>/.claude/sync_relay.json released `cargo xtask ci` in this session`. A broken file is ignored. It works even with `"allow_reads": false`. Nothing here replaces Claude Code's own permission prompts: the plugin only stops denying. Do not trust a file from a repository you do not trust: a pattern like `curl *` is yours to approve.
+Same pattern format (first word literal) and same structural rule, whole command, no `!` entries. The file only loosens: it lets these Bash commands through in the main session and can never tighten anything. You are told before any command runs: at session start the plugin lists the patterns the file frees (`sync_relay: <repo>/.claude/sync_relay.json lets the main session run: `cargo xtask ci`, ...`), and again at the first release if the working directory moves to another repository with a different file (one notice per file and session). A broken file is ignored. It works even with `"allow_reads": false`. Nothing here replaces Claude Code's own permission prompts: the plugin only stops denying. Do not trust a file from a repository you do not trust: a pattern like `curl *` is yours to approve.
 
 ## Session mode
 
-`/relay off`, `/relay remind` and `/relay on` (with the mod) or, without the mod and on Codex, the whole message `relay off`, `relay remind` or `relay on` (case ignored, a leading `/` allowed) set the lock for the open session only, with no restart. Only you can trigger it: it comes from your own message or command, never from a model tool call. Order of precedence: session mode, then `SYNC_RELAY_MODE`, then the config file.
+`/relay off`, `/relay remind` and `/relay on` (with the mod) or, without the mod and on Codex, the whole message `relay off`, `relay remind` or `relay on` (case ignored, a leading `/` allowed) set the lock for the open session only, with no restart. It comes from your own message or command, never from a model tool call. Claude Code, however, also runs `UserPromptSubmit` hooks for scheduled prompts (`/loop`, `CronCreate`, `ScheduleWakeup`), for a background subagent reporting back and for a message from another session, and the hook input has no field that tells them apart from a typed prompt (checked in the hooks reference, 2026-11-22). So a scheduled prompt that says `relay off` would be taken as yours. The way out is not shown to the model (the denial text does not mention it; the hint goes only to you, at session start), but this is not a barrier. Order of precedence: session mode, then `SYNC_RELAY_MODE`, then the config file.
 
-The mode is a small file `_modo-<key>.txt` in the handoff folder. The key is `p<CLAUDE_PID>` on Claude Code (the process: it survives `/clear`, the session id does not), else `s<session id>`; on Codex it is the session id. Files older than 7 days are cleaned with the other plugin files. `/relay status` shows where the current mode comes from.
+The mode is a small file `_modo-<key>.txt` in the handoff folder. The key is `p<CLAUDE_PID>` on Claude Code (the process: it survives `/clear`, the session id does not), else `s<session id>`; on Codex it is the session id. A new Claude Code process (`SessionStart` with `startup`) deletes the mode file of its own key first, so a reused PID never inherits an old `off`. Files older than 7 days are cleaned with the other plugin files. `/relay status` shows where the current mode comes from.
 
 ## Delegation table
 

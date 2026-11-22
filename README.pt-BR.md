@@ -53,7 +53,7 @@ No Claude Code, `/relay` faz os passos 2 e 3 por você, e `/relay auto` faz sozi
 | `/relay remind` | Só o lembrete nesta sessão; nada é bloqueado. |
 | `/relay on` | A trava de volta nesta sessão. |
 | `relay` | A mensagem inteira. Igual a `/relay`, e é o jeito no Codex (depois `/new`). |
-| `relay off`, `relay remind`, `relay on` | A mensagem inteira (maiúsculas não importam, `/` no começo vale). Igual aos três comandos acima; é o jeito sem o mod e no Codex. Só você aciona: o modelo não consegue. |
+| `relay off`, `relay remind`, `relay on` | A mensagem inteira (maiúsculas não importam, `/` no começo vale). Igual aos três comandos acima; é o jeito sem o mod e no Codex. Vem da sua mensagem, nunca de uma chamada de ferramenta; um prompt agendado (`/loop`) não se distingue de um digitado por você. |
 
 Qualquer outro argumento mostra o uso. A linha de estado, ao lado da sua, fica assim: `sync-relay: auto desligado · 45k de 150k` (ou `medindo`, `trocando…`).
 
@@ -83,7 +83,7 @@ Um arquivo JSON para as duas CLIs: `%APPDATA%\sync_relay\config.json` no Windows
 
 Para desligar a trava numa sessão, digite `/relay off` (ou só `relay off`). Sem reiniciar.
 
-A sessão principal também pode rodar alguns comandos inofensivos (`git status`, `ls`, `cat` de arquivo pequeno, `* status`...) e fazer `Read` de arquivo pequeno. Essa lista é só uma semente em `read_commands`: troque, acrescente ou esvazie com `[]`. Um repositório pode somar a dele com `.claude/sync_relay.json`. A única regra fixa: o comando inteiro tem de ser UM comando simples, sem `|`, `;`, `&`, redirecionamento, crase, `$` nem quebra de linha. Detalhes: [docs/configuration.md](docs/configuration.md) (em inglês).
+A sessão principal também pode rodar alguns comandos inofensivos (`git status`, `ls`, `cat` de arquivo pequeno...) e fazer `Read` de arquivo pequeno. Essa lista é só uma semente em `read_commands`: troque, acrescente ou esvazie com `[]`. Um repositório pode somar a dele com `.claude/sync_relay.json`. A única regra fixa: o comando inteiro tem de ser UM comando simples, sem `|`, `;`, `&`, redirecionamento, crase, `$`, quebra de linha, aspas, barra invertida nem curinga, e a primeira palavra de um padrão é literal. `cat`, `head` e `tail` só leem arquivo regular existente dentro do limite de tamanho. Detalhes: [docs/configuration.md](docs/configuration.md) (em inglês).
 
 ## Como funciona
 

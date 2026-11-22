@@ -26,7 +26,7 @@ CMD = ("import os,runpy;runpy.run_path(os.path.join(os.environ['CLAUDE_PLUGIN_RO
        "'sync_relay.py'),run_name='__main__')")
 CHAVES = ["reminder", "denied", "routing_header", "tier_lookup", "tier_judgment", "tier_build", "tier_hard",
           "tier_plan", "handoff_request", "handoff_injected", "stop_warning", "report_too_long", "detect_failed",
-          "handoff_dir_unusable", "routing_cut", "mode_off", "mode_remind", "mode_on", "repo_released", "alias_warn", "sub_wait", "long_command", "mode_ack", "mode_failed"]
+          "handoff_dir_unusable", "routing_cut", "mode_off", "mode_remind", "mode_on", "repo_released", "alias_warn", "sub_wait", "long_command", "mode_ack", "mode_failed", "lock_hint", "pattern_ignored"]
 
 spec = importlib.util.spec_from_file_location("relay", SCRIPT)
 relay = importlib.util.module_from_spec(spec)
@@ -262,7 +262,7 @@ class GanchosDoCodex(Limpo):  # item 7: T6 measured only PLUGIN_ROOT and PLUGIN_
 class Trava(Limpo):  # scenarios 1-3
     def test_claude(self):
         self.assertTrue(negou(rodar("claude", PRE, CLI)))
-        self.assertIn("relay off", rodar("claude", PRE, CLI)["hookSpecificOutput"]["permissionDecisionReason"])
+        self.assertNotIn("relay off", rodar("claude", PRE, CLI)["hookSpecificOutput"]["permissionDecisionReason"])  # review F
         self.assertIsNone(rodar("claude", {**PRE, "agent_id": "a1"}, CLI))
         self.assertIsNone(rodar("claude", PRE, {**CLI, "CLAUDE_CODE_ENTRYPOINT": "sdk-cli"}))
         for livre in ("Agent", "AskUserQuestion", "ToolSearch", "TodoWrite", "SendUserMessage", "TeamCreate"):
@@ -1189,9 +1189,9 @@ class Leitura(Limpo):  # v0.2.1: reads on the main session. The seed lives in th
         self.gra.write_text("x" * (70 * 1024), "utf-8")
 
     def test_semente_libera(self):
-        for c in ("git status", "git status -s", "git log --oneline -5", "git diff --stat", "git diff --stat HEAD~1",
-                  "git diff --name-only main", "git branch", "ls", "ls -la src", "pwd", "syncgate status",
-                  "node --version", "cat small.txt", "head -n 5 small.txt", "tail -n 5 small.txt", "cat nofile.txt"):
+        for c in ("git status", "git status -s", "git log --oneline -5", "git diff --stat", "git diff --stat HEAD",
+                  "git diff --name-only main", "git branch", "ls", "ls -la src", "pwd", "git --version",
+                  "cat small.txt", "head -n 5 small.txt", "tail -n 5 small.txt"):
             self.assertIsNone(_bash(c), c)
 
     def test_escapes_negados(self):  # the structural rule (b): one simple command, no shell metacharacter
@@ -1365,10 +1365,10 @@ class ModoDaSessao(Limpo):  # v0.2.1: /relay off | remind | on, typed as a word 
         self.assertFalse(f.exists())
 
     def test_recusa_diz_como_desligar(self):
-        for t in (EN, PT):
-            self.assertIn("/relay off", t["denied"])
-            self.assertIn("relay off", t["denied"])
-            self.assertNotIn("SYNC_RELAY_MODE=off", t["denied"])
+        for t in (EN, PT):  # review F: the model is never taught the way out; only the user is
+            for palavra in ("relay off", "relay remind", "SYNC_RELAY_MODE", "read_commands", "sync_relay.json"):
+                self.assertNotIn(palavra, t["denied"])
+            self.assertIn("/relay off", t["lock_hint"])
 
 
 class AliasAntigo(Limpo):  # v0.2.1: SYNCLABS_RELAY_* still work until 0.4.0
@@ -1430,6 +1430,111 @@ class SubagenteComTarefa(Limpo):  # v0.2.1: do not let a subagent vanish while a
         self.assertIn("180", EN["long_command"])
         r = rodar("claude", SS, {**CLI, "LANG": "pt_BR.UTF-8"})
         self.assertIn(PT["long_command"], ctx(r))
+
+
+def _ss_msg(r):
+    return (r or {}).get("systemMessage", "")
+
+
+class Revisao021(Limpo):  # review of v0.2.1: findings A-F, each one failed before the fix
+    def setUp(self):
+        super().setUp()
+        self.peq = SB / "small.txt"
+        self.peq.write_text("x" * 100, "utf-8")
+        self.repo = SB / "repo2"
+        shutil.rmtree(self.repo, ignore_errors=True)
+        (self.repo / ".git").mkdir(parents=True)
+        (self.repo / ".claude").mkdir()
+        self.arq = self.repo / ".claude" / "sync_relay.json"
+
+    def test_A_semente_sem_curinga_na_primeira_palavra(self):
+        for c in relay.PADRAO["read_commands"]:
+            if not c.startswith("!"):
+                self.assertNotRegex(c.split()[0], r"[*?\[]", c)
+        for c in ("rm status", "touch status", "bash status", "python status", "npx status", "./install.sh --version",
+                  "FOO=1 status", "/c/tmp/evil.exe --version", "node --version"):
+            self.assertTrue(negou(_bash(c)), c)
+        self.assertIsNone(_bash("git --version"))
+
+    def test_AE_primeira_palavra_literal_config_e_repo(self):
+        for pad in (["[a-z]* *"], ["* *"], ["?* *"], ["*/ *"], ["r* *"], ["[r]m *"]):
+            self.assertTrue(negou(_bash("rm -rf /x", {"read_commands": pad})), pad)
+            self.arq.write_text(json.dumps({"allowed_commands": pad}), "utf-8")
+            self.assertTrue(negou(_bash("rm -rf /x", {"allow_reads": False}, cwd=str(self.repo))), pad)
+        self.assertIsNone(_bash("echo hi", {"read_commands": ["echo *"]}))  # a literal first word still works
+
+    def test_AE_padrao_ignorado_avisa(self):
+        r = rodar("claude", SS, CLI, {"read_commands": ["git status", "[a-z]* *"]})
+        self.assertIn("[a-z]* *", _ss_msg(r))
+
+    def test_B_aspas_e_barra_nao_escondem_vetos(self):
+        for c in ("tail '-f' small.txt", 'tail "-f" small.txt', "tail \\-f small.txt", "tail '--follow' small.txt",
+                  "git log '--output=/tmp/pwn'", "git diff --stat '--output=/tmp/pwn'", 'git log "-o" x',
+                  "cat ~/x", "cat *.txt", "cat small.tx?", "cat small.tx[t]", "ls {a,b}", "ls ~"):
+            self.assertTrue(negou(_bash(c)), c)
+
+    def test_C_so_arquivo_regular_pequeno(self):
+        (SB / "dir1").mkdir(exist_ok=True)
+        for c in ("cat /dev/zero", "head -c 1000000000 /dev/zero", "cat /dev/urandom", "cat nofile.txt", "cat dir1", "cat .",
+                  "cat /c/Windows/nothing", "cat -", "head -n 5", "head -c 70000 small.txt", "head -c70000 small.txt",
+                  "head --bytes=70000 small.txt", "head -c 1G small.txt", "cat small.txt nofile.txt", "cat"):
+            self.assertTrue(negou(_bash(c, cwd=str(SB))), c)
+        for c in ("cat small.txt", "head -n 5 small.txt", "head -c 100 small.txt", "tail -n 5 small.txt", "cat " + str(self.peq).replace(chr(92), "/")):  # a backslash path is refused by the structural rule
+            self.assertIsNone(_bash(c, cwd=str(SB)), c)
+        self.assertTrue(negou(_bash("cat small.txt", cwd=str(SB / "dir1"))))  # resolved from the hook's cwd, not elsewhere
+
+    def test_C_link_para_dispositivo(self):
+        ln = SB / "lnzero"
+        try:
+            if ln.is_symlink() or ln.exists():
+                ln.unlink()
+            os.symlink("/dev/zero", ln)
+        except (OSError, NotImplementedError):
+            self.skipTest("no symlink here")
+        self.assertTrue(negou(_bash("cat lnzero", cwd=str(SB))))
+
+    def test_D_startup_apaga_o_modo_do_mesmo_pid(self):
+        P = {"CLAUDE_PID": "4242"}
+        rodar("claude", {**UPS, "prompt": "relay off"}, {**CLI, **P})
+        self.assertIsNone(rodar("claude", PRE, {**CLI, **P}))
+        rodar("claude", {**SS, "source": "clear"}, {**CLI, **P})  # /clear keeps it
+        self.assertIsNone(rodar("claude", PRE, {**CLI, **P}))
+        rodar("claude", {**SS, "session_id": "new"}, {**CLI, **P})  # a new process with the same PID
+        self.assertTrue(negou(rodar("claude", PRE, {**CLI, **P})))
+        with tempfile.TemporaryDirectory() as t:  # Codex: keyed by the session id
+            tui = rollout(t, "codex-tui")
+            rodar("codex", {**UPS, "transcript_path": tui, "session_id": "cx-1", "prompt": "relay off"})
+            rodar("codex", {**SS, "transcript_path": tui, "session_id": "cx-1"})
+            self.assertTrue(negou(rodar("codex", {**PRE, "tool_name": "Bash", "transcript_path": tui, "session_id": "cx-1"})))
+
+    def test_E_aviso_no_inicio_da_sessao(self):
+        self.arq.write_text(json.dumps({"allowed_commands": ["cargo xtask ci", "make *"]}), "utf-8")
+        P = {"CLAUDE_PID": "77"}
+        r = rodar("claude", {**SS, "cwd": str(self.repo)}, {**CLI, **P})
+        m = _ss_msg(r)
+        self.assertIn("sync_relay.json", m)
+        self.assertIn("cargo xtask ci", m)
+        self.assertIn("make *", m)
+        self.assertIsNone(rodar("claude", {**PRE, "tool_name": "Bash", "tool_input": {"command": "cargo xtask ci"}, "cwd": str(self.repo)}, {**CLI, **P}))  # already told
+        outro = SB / "repo3"
+        shutil.rmtree(outro, ignore_errors=True)
+        (outro / ".git").mkdir(parents=True)
+        (outro / ".claude").mkdir()
+        (outro / ".claude" / "sync_relay.json").write_text(json.dumps({"allowed_commands": ["curl *"]}), "utf-8")
+        r2 = rodar("claude", {**PRE, "tool_name": "Bash", "tool_input": {"command": "curl x"}, "cwd": str(outro)}, {**CLI, **P})
+        self.assertIn("curl *", _ss_msg(r2))  # cwd moved to another repo with another file: told again
+        self.assertNotIn("sync_relay.json", _ss_msg(rodar("claude", {**SS, "cwd": str(SB)}, CLI)))  # no file, no notice
+        self.assertNotIn("sync_relay.json", _ss_msg(rodar("claude", {**SS, "cwd": str(self.repo)}, CLI, {"mode": "off"})))
+        self.assertNotIn("sync_relay.json", _ss_msg(rodar("claude", {**SS, "cwd": str(self.repo), "agent_id": "a"}, CLI)))
+
+    def test_F_dica_so_para_o_usuario(self):
+        r = rodar("claude", PRE, CLI)
+        self.assertTrue(negou(r))
+        self.assertNotIn("off", json.dumps(r["hookSpecificOutput"]))
+        ss = rodar("claude", SS, CLI)
+        self.assertIn("/relay off", _ss_msg(ss))
+        self.assertNotIn("/relay off", json.dumps(ss.get("hookSpecificOutput")))
+        self.assertNotIn("/relay off", _ss_msg(rodar("claude", SS, CLI, {"mode": "off"})))
 
 
 if __name__ == "__main__":

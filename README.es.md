@@ -53,7 +53,7 @@ En Claude Code, `/relay` hace los pasos 2 y 3 por ti, y `/relay auto` los hace s
 | `/relay remind` | Solo el recordatorio en esta sesión; no se bloquea nada. |
 | `/relay on` | El bloqueo de vuelta en esta sesión. |
 | `relay` | El mensaje completo. Igual que `/relay`, y es la forma de hacerlo en Codex (luego `/new`). |
-| `relay off`, `relay remind`, `relay on` | El mensaje completo (mayúsculas no importan, vale un `/` al inicio). Igual que los tres comandos de arriba; es la forma sin el mod y en Codex. Solo tú lo activas: el modelo no puede. |
+| `relay off`, `relay remind`, `relay on` | El mensaje completo (mayúsculas no importan, vale un `/` al inicio). Igual que los tres comandos de arriba; es la forma sin el mod y en Codex. Viene de tu mensaje, nunca de una llamada a herramienta; un prompt programado (`/loop`) no se distingue de uno que escribes tú. |
 
 Cualquier otro argumento muestra el uso. La línea de estado, junto a la tuya, se ve así: `sync-relay: auto off · 45k of 150k` (o `measuring`, `switching…`).
 
@@ -83,7 +83,7 @@ Un archivo JSON para las dos CLI: `%APPDATA%\sync_relay\config.json` en Windows,
 
 Para desactivar el bloqueo en una sesión, escribe `/relay off` (o solo `relay off`). Sin reiniciar.
 
-La sesión principal también puede ejecutar algunos comandos inofensivos (`git status`, `ls`, `cat` de un archivo pequeño, `* status`...) y hacer `Read` de un archivo pequeño. Esa lista es solo una semilla en `read_commands`: cámbiala, amplíala o vacíala con `[]`. Un repositorio puede sumar la suya con `.claude/sync_relay.json`. La única regla fija: el comando entero tiene que ser UN comando simple, sin `|`, `;`, `&`, redirección, comilla invertida, `$` ni salto de línea. Detalles: [docs/configuration.md](docs/configuration.md) (en inglés).
+La sesión principal también puede ejecutar algunos comandos inofensivos (`git status`, `ls`, `cat` de un archivo pequeño...) y hacer `Read` de un archivo pequeño. Esa lista es solo una semilla en `read_commands`: cámbiala, amplíala o vacíala con `[]`. Un repositorio puede sumar la suya con `.claude/sync_relay.json`. La única regla fija: el comando entero tiene que ser UN comando simple, sin `|`, `;`, `&`, redirección, comilla invertida, `$`, salto de línea, comillas, barra invertida ni comodín, y la primera palabra de un patrón es literal. `cat`, `head` y `tail` solo leen un archivo regular existente dentro del límite de tamaño. Detalles: [docs/configuration.md](docs/configuration.md) (en inglés).
 
 ## Cómo funciona
 

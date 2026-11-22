@@ -64,10 +64,11 @@ PADRAO = {
     "allow_reads": True,  # false turns off read_commands and the Read exception (not the repo file)
     # The seed of the lock's read exception: a starting point, not a rule hidden in the code. Whole command, token by token:
     # `*` as a token = one word (the last token = one or more words), inside a token = any characters; `!x` = deny when
-    # any argument matches x. Replace or empty it in the config; the fixed part is only the shell-structure check.
+    # any argument matches x. The FIRST word of a pattern is always literal. Replace or empty it in the config; the fixed
+    # part is the shell-structure check, the first-word rule and the file check of cat/head/tail.
     "read_commands": ["git status", "git status *", "git log", "git log *", "git diff --stat", "git diff --stat *",
-                      "git diff --name-only", "git diff --name-only *", "git branch", "ls", "ls *", "pwd",
-                      "cat *", "head *", "tail *", "* status", "* --version",
+                      "git diff --name-only", "git diff --name-only *", "git branch", "git branch --show-current", "ls", "ls *", "pwd",
+                      "cat *", "head *", "tail *", "git --version",
                       "!-o", "!--ou*", "!-f*", "!-F*", "!-[!-]*f*", "!-[!-]*F*", "!--follow*"],
     "read_max_kb": 64,  # cat/head/tail/Read of a file over this are not read exceptions
     "read_max_lines": 200,  # Read with `limit` up to this is allowed whatever the file size
@@ -94,11 +95,12 @@ VIDA_ARQUIVO = 7 * 86400
 NOME_DO_PLUGIN = re.compile(r"[a-z0-9-]+(\.usada)?\.md")  # only in the default folder
 # underscore files: the plugin's own, cleaned in ANY folder (a configured one may hold the user's notes, never these)
 NOME_SUBLINHADO = re.compile(r"_req-[0-9]+\.txt|_detect-[^/\\]+\.flag|_trace-[0-9a-f]{8}\.md"
-                             r"|_modo-[ps][A-Za-z0-9]+\.txt|_(?:repo|alias)-[ps][A-Za-z0-9]+\.flag|_sub-[A-Za-z0-9_-]{1,64}\.n")
+                             r"|_modo-[ps][A-Za-z0-9]+\.txt|_repo-[ps][A-Za-z0-9]+-[0-9a-f]{8}\.flag|_alias-[ps][A-Za-z0-9]+\.flag|_sub-[A-Za-z0-9_-]{1,64}\.n")
 ALIAS_ANTIGOS = ("MODE", "LANG", "CONFIG")  # SYNCLABS_RELAY_<X> worked before 0.2.0; out in 0.4.0
 MODOS_SESSAO = {"off": "off", "remind": "remind", "on": "enforce"}  # what the user types -> what is stored
 MAX_BLOCOS_SUB = 2  # a subagent is held at most this many times for a background task
-NAO_E_COMANDO_SIMPLES = re.compile(r"[|;&<>`$()\r\n]")  # the one fixed rule of the read exception: one simple command
+# fixed rule of the read exception: ONE simple command, no quote, escape, expansion or glob, so the split on spaces is exact
+NAO_E_COMANDO_SIMPLES = re.compile(r"[|;&<>`$()\r\n'\"\\~*?\[\]{}]")
 FIM_DE_TAREFA = {"completed", "failed", "killed", "cancelled", "stopped"}
 VALIDADE_PERMISSAO = 10 * 60  # the marker is fresh only while the handoff it asked for is being written
 VALIDADE_HANDOFF = 30 * 60  # asked and switched right away; older belongs to another conversation
@@ -512,7 +514,13 @@ def gravar_modo(chave, pasta, valor):
 
 # ---------- what the lock lets through on the main session (v0.2.1) ----------
 def _padrao_vale(p):
-    return bool(re.search(r"[^\s*?\[\]!]", p))  # a pattern made only of wildcards would free everything
+    """A pattern is valid when its FIRST word is literal (no `*`, `?`, `[`): a wildcard there frees any program."""
+    pt = p.split()
+    return bool(pt) and not re.search(r"[*?\[]", pt[0])
+
+
+def padroes_ignorados(padroes):
+    return [p for p in padroes if not p.startswith("!") and not _padrao_vale(p)]
 
 
 def _casa(tokens, padrao):
@@ -528,7 +536,7 @@ def _casa(tokens, padrao):
 def por_padroes(cmd, padroes, negativos=True):
     """True if the whole command is ONE simple command (no shell metacharacter: the only fixed rule) that matches a
     pattern. `!x` entries (negativos) deny when any argument matches x. shortcut: no quote parsing, so a quoted
-    metacharacter is also refused; upgrade only if that gets in the way."""
+    character is also refused; upgrade only if that gets in the way."""
     if not isinstance(cmd, str) or NAO_E_COMANDO_SIMPLES.search(cmd):
         return False
     tokens = cmd.split()
@@ -553,13 +561,36 @@ def arquivo_pequeno(arq, cwd, max_kb):
     return stat.S_ISREG(st.st_mode) and st.st_size <= max_kb * 1024
 
 
+def arquivo_regular_pequeno(arq, cwd, max_kb):
+    """The file bash opens is the one Python finds: a regular file (after realpath, from the hook's cwd) up to max_kb.
+    Device, folder, link to a device, missing path or a path Python cannot see (/c/..., ~) are all no."""
+    try:
+        c = os.path.realpath(_caminho(arq, cwd))
+        return os.path.isfile(c) and os.path.getsize(c) <= max_kb * 1024
+    except (OSError, ValueError):
+        return False
+
+
 def tamanho_ok(cmd, cwd, max_kb):
-    """cat, head and tail: every file argument within max_kb, and at least one (no file = reads stdin, never ends)."""
+    """cat, head and tail: at least one file argument (no file = stdin, never ends) and EVERY non-option argument a regular
+    file within max_kb. The number after -n/-c of head/tail passes; `head -c N` with N over max_kb is refused."""
     t = cmd.split()
     if os.path.basename(t[0]) not in ("cat", "head", "tail"):
         return True
-    args = [a for a in t[1:] if not a.startswith("-")]
-    return bool(args) and all(arquivo_pequeno(a, cwd, max_kb) for a in args)  # shortcut: `head -n 5` alone passes (the 5 counts as an argument); upgrade if seen
+    arqs, valor, limite = [], False, max_kb * 1024
+    for i, a in enumerate(t[1:], 1):
+        if valor and re.fullmatch(r"[0-9]+", a):
+            valor = False
+            if t[0] == "head" and t[i - 1] == "-c" and int(a) > limite:
+                return False
+            continue
+        valor = t[0] != "cat" and a in ("-n", "-c")
+        m = re.fullmatch(r"-c([0-9]+)|--bytes=([0-9]+)", a)
+        if m and t[0] == "head" and int(m.group(1) or m.group(2)) > limite:
+            return False
+        if a == "-" or not a.startswith("-"):
+            arqs.append(a)
+    return bool(arqs) and all(arquivo_regular_pequeno(a, cwd, max_kb) for a in arqs)
 
 
 def leitura_ok(ti, cwd, cfg):
@@ -612,9 +643,22 @@ def liberada(d, cfg, pasta, cli, env, t):
         return True, None
     arq, lista = arquivo_do_repo(cwd)
     if lista and por_padroes(cmd, lista, False) and tamanho_ok(cmd, cwd, cfg["read_max_kb"]):
-        k = chave_sessao(d, cli, env)
-        return True, t("repo_released", file=arq, cmd=cmd) if k and marcar(pasta, "_repo-%s.flag" % k) else None
+        return True, aviso_do_repo(d, pasta, cli, env, t)
     return False, None
+
+
+def aviso_do_repo(d, pasta, cli, env, t):
+    """Short notice of what the repo file frees, once per session and per file (path + content): at SessionStart, and again
+    at the first release if the cwd moved to another repo. None when told already, no file or no session key."""
+    arq, lista = arquivo_do_repo(d.get("cwd") if isinstance(d.get("cwd"), str) else "")
+    k = chave_sessao(d, cli, env)
+    if not lista or not k or not marcar(pasta, "_repo-%s-%s.flag" % (k, fnv1a(arq + chr(0) + chr(10).join(lista)))):
+        return None
+    ok = [p for p in lista if _padrao_vale(p)]
+    msg = [t("repo_released", file=arq, pats=", ".join("`%s`" % p for p in ok[:6]) + (" (+%d)" % (len(ok) - 6) if len(ok) > 6 else ""))] if ok else []
+    if padroes_ignorados(lista):
+        msg.append(t("pattern_ignored", pats=", ".join("`%s`" % p for p in padroes_ignorados(lista))))
+    return chr(10).join(msg) or None
 
 
 def segura_subagente(pasta, agent_id):
@@ -938,6 +982,14 @@ def processar(d, cli, env, home, nt):
     # SessionStart creates too: it must resolve the folder exactly as the request did, or the handoff is never found
     pasta = escolher_pasta(cfg, env, home, nt, pedido or troca or evento == "SessionStart")
     chave = chave_sessao(d, cli, env)
+    if evento == "SessionStart" and d.get("source") == "startup" and chave and pasta_segura(pasta, False):
+        # a new process may reuse the PID of an old one: nothing of the old session carries over (the mode, the repo notices)
+        for e in os.scandir(pasta):
+            if e.name == "_modo-%s.txt" % chave or (e.name.startswith("_repo-%s-" % chave) and NOME_SUBLINHADO.fullmatch(e.name)):
+                try:
+                    os.remove(e.path)
+                except OSError:
+                    pass
     m = modo(cfg, env, modo_da_sessao(chave, pasta))
     if evento == "SessionStart" and pasta_segura(pasta, False):
         limpar(pasta, pasta == handoff_dir({}, env, home, nt))
@@ -1014,6 +1066,11 @@ def processar(d, cli, env, home, nt):
             n = sobra - _u16(corte) - 1
             tab = (_cortar(tab, n).rpartition("\n")[0] + "\n" + corte).lstrip("\n") if n >= 0 else ""
         partes = [x for x in (tab, bloco) if x]
+        if trava:  # for the USER only (systemMessage): the model is never told how to turn the lock off
+            ign = padroes_ignorados(cfg["read_commands"]) if cfg["allow_reads"] else []
+            extra = [t("lock_hint")] + ([t("pattern_ignored", pats=", ".join("`%s`" % p for p in ign))] if ign else [])
+            extra.append(aviso_do_repo(d, pasta, cli, env, t))
+            aviso = {"systemMessage": chr(10).join(x for x in [(aviso or {}).get("systemMessage")] + extra if x)}
         return _com_aviso(contexto(evento, "\n\n".join(partes)) if partes else None, aviso), mover
     # a subagent still running (Claude Stop input `background_tasks`): its report would land in the new session out of
     # context, so warn at the turn that brings it; shells never hold the warning (a server may never end)

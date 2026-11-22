@@ -1,6 +1,6 @@
 {
   "reminder": "[relay] A sessão principal só orquestra: tudo que precisa de ferramenta (ler, buscar, rodar, escrever, web, MCP) vai a um subagente, pela tabela de delegação do início da sessão. Pergunta que não precisa de ferramenta: responda direto.",
-  "denied": "sync_relay: a sessão principal só orquestra e esta ferramenta é trabalho. Delegue a um subagente (Claude: Agent; Codex: spawn_agent) pela tabela de delegação. Para desligar a trava só NESTA sessão, digite `/relay off` (ou só `relay off` sem o mod, ou no Codex); `relay remind` deixa só o lembrete, `relay on` traz a trava de volta. Para mudar de vez, ponha \"mode\" no arquivo de configuração; para liberar um comando, veja \"read_commands\" e .claude/sync_relay.json na documentação.",
+  "denied": "sync_relay: a sessão principal só orquestra e esta ferramenta é trabalho. Delegue a um subagente (Claude: Agent; Codex: spawn_agent) pela tabela de delegação.",
   "routing_header": "[relay] Tabela de delegação. Chame {tool} com:\n{tiers}\nPeça a cada subagente: o que fez, a decisão, a evidência, o que ficou; no máximo {max} caracteres; detalhe longo vai para arquivo e volta só o caminho.",
   "tier_lookup": "- consultar, ler, buscar: {spec}",
   "tier_judgment": "- julgamento técnico, resumo, comparar opções: {spec}",
@@ -15,15 +15,17 @@
   "stop_warning": "Contexto em {total}k tokens (+{extra}k acima do início desta sessão): passou do ponto de troca ({limit}k). Digite relay (ou /relay no Claude Code). Depois abra sessão nova (Claude: /clear; Codex: /new): ela já começa com a passagem.",
   "report_too_long": "Seu relatório passou de {max} caracteres. Mande de novo em até {max}: o que fez, a decisão, a evidência, o que ficou. Detalhe longo vai para um arquivo, e você passa só o caminho.",
   "detect_failed": "sync_relay: trava desligada. Não deu para saber se esta sessão é interativa (o CLI não expôs o sinal), então nenhuma ferramenta é bloqueada. Use SYNC_RELAY_MODE=force para forçar a trava.",
-  "handoff_dir_unusable": "sync_relay: não deu para criar a pasta de passagens (a configurada e a padrão estão inutilizáveis), então a passagem não foi pedida. Defina \"handoff_dir\" com um caminho absoluto gravável no arquivo de configuração.",
+  "handoff_dir_unusable": "sync_relay: não deu para criar a pasta de passagens (a configurada e a padrão estão inutilizáveis), então a passagem não foi pedida. Defina \"handoff_dir\" com um caminho absoluto gravável no arquivo de configuração.",
   "routing_cut": "[tabela de roteamento cortada] Não coube junto com a passagem no limite de contexto.",
   "mode_off": "sync_relay: trava DESLIGADA nesta sessão (sem lembrete também). `relay on` religa.",
   "mode_remind": "sync_relay: só o lembrete nesta sessão (nada é bloqueado). `relay on` traz a trava de volta.",
   "mode_on": "sync_relay: trava LIGADA nesta sessão.",
   "mode_ack": "[relay] O usuário mudou o modo da trava nesta sessão. Nada a fazer: responda só \"ok\".",
   "mode_failed": "sync_relay: não deu para gravar o modo desta sessão (sem pasta de estado ou id de sessão); nada mudou. Ponha \"mode\" no arquivo de configuração ou SYNC_RELAY_MODE.",
-  "repo_released": "sync_relay: {file} liberou `{cmd}` nesta sessão",
+  "repo_released": "sync_relay: {file} deixa a sessão principal rodar: {pats}",
   "alias_warn": "sync_relay: a(s) variável(is) {names} ainda valem, mas saem na 0.4.0. Use o nome SYNC_RELAY_*.",
   "sub_wait": "{n} tarefa(s) de segundo plano desta sessão ainda rodam (o Claude Code manda para segundo plano todo Bash acima de uns 180 s). Não devolva resultado parcial: espere o aviso de fim e só então envie o relatório final.",
-  "long_command": "- comando longo: o Claude Code manda para segundo plano todo Bash acima de ~180 s; espere o aviso de fim e devolva o resultado final, nunca só o parcial."
+  "long_command": "- comando longo: o Claude Code manda para segundo plano todo Bash acima de ~180 s; espere o aviso de fim e devolva o resultado final, nunca só o parcial.",
+  "lock_hint": "sync_relay: trava LIGADA. Para desligar SÓ nesta sessão, digite `/relay off` (ou só `relay off` sem o mod, ou no Codex); `relay remind` deixa só o lembrete, `relay on` traz a trava de volta. A trava mantém o modelo no rumo; não é uma sandbox.",
+  "pattern_ignored": "sync_relay: padrão(ões) ignorado(s), a primeira palavra tem de ser literal (sem `*`, `?`, `[`): {pats}"
 }
