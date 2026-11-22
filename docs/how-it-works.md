@@ -4,6 +4,8 @@
 
 On `PreToolUse`, the main interactive session is denied any tool that is not on the free list: the orchestration tools (`Agent`, `SendMessage`, `AskUserQuestion`, `ToolSearch`, `Skill`, the task tools, plan mode, and on Codex `spawn_agent`, `wait`, `send_input`, `update_plan` and similar). Add more with `allowed_tools`.
 
+The lock lets a few things through by your own list: Bash commands that match `read_commands` (a seed of harmless reads, one simple command with no shell metacharacter), `Read` of a small file or with a small `limit`, and the commands of the repository's `.claude/sync_relay.json`. What it frees and how to change it: [configuration.md](configuration.md#what-the-lock-lets-through). The user can also turn the lock off, or to a reminder, for the open session alone (`/relay off`, `/relay remind`, `/relay on`, or the same words typed as the whole message): the mode is stored per Claude Code process (`CLAUDE_PID`) or Codex session id, survives `/clear`, and wins over `SYNC_RELAY_MODE` and the config.
+
 What counts as the main interactive session:
 
 - Claude Code: the process was not started by `claude -p` or the SDK (`CLAUDE_CODE_ENTRYPOINT` does not start with `sdk`), and the call carries no `agent_id`.
@@ -15,7 +17,9 @@ Code Mode (`CLAUDE_CODE_EXPERIMENTAL_CODE_MODE=1`): the `REPL` wrapper and `Poll
 
 ## The delegation table
 
-When a main session starts, resumes, clears or compacts, the plugin injects a table of five layers (look up, technical judgment, build, hard debugging, plan), rendered from the config. The defaults are in [configuration.md](configuration.md). The table also asks subagents for a short report; a longer one (over `report_max_chars`) is sent back once by the `SubagentStop` hook.
+When a main session starts, resumes, clears or compacts, the plugin injects a table of five layers (look up, technical judgment, build, hard debugging, plan), rendered from the config. The defaults are in [configuration.md](configuration.md). The table also asks subagents for a short report; a longer one (over `report_max_chars`) is sent back once by the `SubagentStop` hook. One more line tells the main session that Claude Code sends every Bash over about 180 s to the background, so it must wait for the end notice and return the final result, never only a partial one.
+
+The `SubagentStop` hook also holds a subagent that tries to finish while a background shell or monitor task of the session is still running (`background_tasks` in the hook input; measured with `claude -p` 2.1.330, which lists the subagent itself as a `subagent` task and its `sleep` as a `shell` task, both `running`). It answers `block` with a reason asking it to wait for the end notice and then send the final report. It respects `stop_hook_active` and holds the same subagent at most twice. Subagents that run in parallel do not hold each other, and in `claude -p` it does nothing.
 
 ## The handoff
 
@@ -73,7 +77,7 @@ Hook cost, measured: 50 `PreToolUse` calls through Git Bash on Windows, with `py
 - No network calls, in any hook or script.
 - The hooks read the transcript (Claude Code) or the rollout (Codex) of the current session, only for token counts, the model id (Claude Code) and, on Codex, `originator` and `source` in the first line. They never print or store the rest.
 - The handoff file holds what the model wrote about your work, which may include client or project details. It stays in a folder under your own user profile, never in your repository. On macOS and Linux the plugin keeps the default folder at mode `0700`; a folder you set in `handoff_dir` keeps its permissions. The plugin refuses a folder that is a symlink or belongs to another user.
-- Files older than 7 days are deleted when a session starts, only with names the plugin writes: `_req-N.txt`, `_detect-*.flag` and `_trace-<8hex>.md` in any folder; the handoff `.md` files only in the default folder.
+- Files older than 7 days are deleted when a session starts, only with names the plugin writes: `_req-N.txt`, `_detect-*.flag`, `_trace-<8hex>.md`, `_modo-*.txt`, `_repo-*.flag`, `_alias-*.flag` and `_sub-*.n` in any folder; the handoff `.md` files only in the default folder.
 - The mod keeps a small trace file per session in the handoff folder (`_trace-<id8>.md`: events and timing, the last 200 lines, never the handoff text).
 
 ## Known limits
@@ -81,6 +85,8 @@ Hook cost, measured: 50 `PreToolUse` calls through Git Bash on Windows, with `py
 - Codex support is untested: the plugin installs and its hook was checked without a model, but the lock, the warning and the handoff have not been seen working in a real Codex session. Codex runs plugin hooks only after you approve them in `/hooks`; unapproved hooks fail silently.
 - The lock depends on signals the CLIs do not document (`CLAUDE_CODE_ENTRYPOINT`, `agent_id`, the Codex `originator` and `source`). A CLI update can change them. If the plugin cannot read the signal, the lock is off for that session; if `agent_id` disappears, subagents would be denied: set `SYNC_RELAY_MODE=off` until the plugin is updated.
 - Claude Code handoffs in a directory can be read by Codex for 30 minutes.
+- The background-task hold cannot tell whose task it is: `background_tasks` is scoped to the whole session, so a shell the main session started also holds a finishing subagent, at most twice. Whether the subagent then really waits for the notice and resumes was not measured in an interactive session.
+- A command is checked as text, not run: a program that writes or deletes by itself (`rm status` matches the seed `* status`) is as safe as your list. Narrow `read_commands` if that matters.
 - A `handoff_dir` that passes the rule but cannot be used (a link or a junction) is not noticed by the mod: the script falls back to the default folder and the two look at different folders. Use a plain folder of your own.
 - The mod uses the Claude Code mods API, which is in early access and can change. It sees agents only, not background shell commands; the handoff file carries those.
 - Only Windows was tested.

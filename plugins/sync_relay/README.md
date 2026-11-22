@@ -4,14 +4,14 @@ One plugin for Claude Code and Codex: keeps the main session delegating, hands a
 
 ```sh
 claude plugin marketplace add Sync-Labs-team/sync_relay
-claude plugin install sync_relay@sync_relay
+claude plugin install sync-relay@sync-relay
 ```
 
 Codex (not tested in a real session):
 
 ```sh
 codex plugin marketplace add Sync-Labs-team/sync_relay
-codex plugin add sync_relay@sync_relay
+codex plugin add sync-relay@sync-relay
 ```
 
 Needs Python 3.9 or newer as `python3`. Codex runs the hooks only after you approve them with `/hooks`.
@@ -22,7 +22,8 @@ Needs Python 3.9 or newer as `python3`. Codex runs the hooks only after you appr
 | `/relay` | Writes the handoff and opens the new session now. |
 | `/relay auto` | Turns the automatic switch on or off. Remembered between sessions. |
 | `/relay button` | Shows or hides the button. Remembered between sessions. The status line stays. |
-| `/relay status` | Lock mode, auto, context, switch point and its origin, handoff folder. |
+| `/relay status` | Lock mode and its origin, auto, context, switch point and its origin, handoff folder. |
+| `/relay off`, `/relay remind`, `/relay on` | The lock for THIS session only, no restart. Without the mod, and on Codex, type the whole message `relay off`, `relay remind` or `relay on`. |
 
 The mod uses the Claude Code mods API (early access, can change). With it active, set `"stop_warning": false` in the config so you do not get two warnings.
 

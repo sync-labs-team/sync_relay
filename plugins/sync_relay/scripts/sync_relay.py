@@ -3,14 +3,18 @@
 The main interactive session only orchestrates; work goes to subagents. Standard library only, Python >= 3.9.
 
 - PreToolUse: denies work tools in the main interactive session (mode `enforce`). Subagents (`agent_id`),
-  automation (`claude -p`, `codex exec`) and orchestration tools pass.
+  automation (`claude -p`, `codex exec`) and orchestration tools pass. Also let through: Bash matching `read_commands` (ONE simple
+  command, no shell metacharacter), small Read, and `allowed_commands` of <repo>/.claude/sync_relay.json (only loosens).
 - UserPromptSubmit: short reminder per message; the word `relay` (whole message, `/` optional) asks for the handoff file.
+  `relay off|remind|on` (whole message) sets the lock mode of THIS session (file `_modo-<key>.txt`, key = CLAUDE_PID or
+  session id); precedence session > SYNC_RELAY_MODE > config. SYNCLABS_RELAY_* still work until 0.4.0 (one notice).
 - SessionStart: routing table (from config) for the main session; delivers a pending handoff to a new session
   (`startup`/`clear`), the only one that does in both CLIs (the band mod only triggers the switch); deletes handoff
   files older than 7 days.
 - Stop: warns at the switch point, floor + min(D, 0.8 x (C - floor)): D = `threshold_tokens` (default 150k), C = the CLI's
   auto-compaction point (see compactacao); not while a subagent runs.
-- SubagentStop: asks once for a shorter report when it passes `report_max_chars`.
+- SubagentStop: asks once for a shorter report when it passes `report_max_chars`. Holds a subagent (block, at most 2x) while a
+  shell or monitor background task still runs.
 
 Config: see README (file `sync_relay/config.json`; env SYNC_RELAY_MODE / _LANG / _CONFIG win over it).
 Any error: do nothing (fail open). Output is ASCII JSON: under a pipe the Windows stdout is cp1252.
@@ -25,6 +29,7 @@ import shutil
 import stat
 import sys
 import time
+from fnmatch import fnmatchcase
 from pathlib import Path
 
 LIVRES = {
@@ -56,6 +61,16 @@ PADRAO = {
     "report_max_chars": 4000,
     "handoff_dir": "",
     "allowed_tools": [],
+    "allow_reads": True,  # false turns off read_commands and the Read exception (not the repo file)
+    # The seed of the lock's read exception: a starting point, not a rule hidden in the code. Whole command, token by token:
+    # `*` as a token = one word (the last token = one or more words), inside a token = any characters; `!x` = deny when
+    # any argument matches x. Replace or empty it in the config; the fixed part is only the shell-structure check.
+    "read_commands": ["git status", "git status *", "git log", "git log *", "git diff --stat", "git diff --stat *",
+                      "git diff --name-only", "git diff --name-only *", "git branch", "ls", "ls *", "pwd",
+                      "cat *", "head *", "tail *", "* status", "* --version",
+                      "!-o", "!--ou*", "!-f*", "!-F*", "!-[!-]*f*", "!-[!-]*F*", "!--follow*"],
+    "read_max_kb": 64,  # cat/head/tail/Read of a file over this are not read exceptions
+    "read_max_lines": 200,  # Read with `limit` up to this is allowed whatever the file size
     "codex_interactive_originators": ["codex-tui", "codex_work_desktop"],  # measured in real rollouts
     "routing": {  # model None = do not pass a model, the subagent inherits the session's
         "lookup": _camada({"agent": "Explore", "model": "haiku", "effort": "low"},
@@ -78,7 +93,13 @@ VIDA_ARQUIVO = 7 * 86400
 # slug() is [a-z0-9-] and never starts with '-': names have no separator and no other dot
 NOME_DO_PLUGIN = re.compile(r"[a-z0-9-]+(\.usada)?\.md")  # only in the default folder
 # underscore files: the plugin's own, cleaned in ANY folder (a configured one may hold the user's notes, never these)
-NOME_SUBLINHADO = re.compile(r"_req-[0-9]+\.txt|_detect-[^/\\]+\.flag|_trace-[0-9a-f]{8}\.md")
+NOME_SUBLINHADO = re.compile(r"_req-[0-9]+\.txt|_detect-[^/\\]+\.flag|_trace-[0-9a-f]{8}\.md"
+                             r"|_modo-[ps][A-Za-z0-9]+\.txt|_(?:repo|alias)-[ps][A-Za-z0-9]+\.flag|_sub-[A-Za-z0-9_-]{1,64}\.n")
+ALIAS_ANTIGOS = ("MODE", "LANG", "CONFIG")  # SYNCLABS_RELAY_<X> worked before 0.2.0; out in 0.4.0
+MODOS_SESSAO = {"off": "off", "remind": "remind", "on": "enforce"}  # what the user types -> what is stored
+MAX_BLOCOS_SUB = 2  # a subagent is held at most this many times for a background task
+NAO_E_COMANDO_SIMPLES = re.compile(r"[|;&<>`$()\r\n]")  # the one fixed rule of the read exception: one simple command
+FIM_DE_TAREFA = {"completed", "failed", "killed", "cancelled", "stopped"}
 VALIDADE_PERMISSAO = 10 * 60  # the marker is fresh only while the handoff it asked for is being written
 VALIDADE_HANDOFF = 30 * 60  # asked and switched right away; older belongs to another conversation
 LIMITE_CONTEXTO = 9000  # hooks doc: additionalContext over 10,000 chars becomes a file path + 2,000-char preview
@@ -124,9 +145,9 @@ def mesclar(user):
         elif k in PADRAO and k != "routing" and type(v) is type(PADRAO[k]):
             if k == "mode" and v not in MODOS:
                 continue
-            if k == "threshold_tokens" and v <= 0:
+            if k in ("threshold_tokens", "read_max_kb", "read_max_lines") and v <= 0:
                 continue
-            if k in ("allowed_tools", "codex_interactive_originators") and not all(isinstance(x, str) for x in v):
+            if k in ("allowed_tools", "codex_interactive_originators", "read_commands") and not all(isinstance(x, str) for x in v):
                 continue
             c[k] = v
     return c
@@ -157,9 +178,25 @@ def ler_config(env, home, nt):
         return mesclar(None)
 
 
-def modo(cfg, env):
+def aliasar(env):
+    """(env, names used): a SYNCLABS_RELAY_<X> stands in for SYNC_RELAY_<X> only when the new one is not set.
+    shortcut: runs on every call; remove with the aliases in 0.4.0."""
+    novo, usados = dict(env), []
+    for x in ALIAS_ANTIGOS:
+        if env.get("SYNCLABS_RELAY_" + x):
+            usados.append("SYNCLABS_RELAY_" + x)
+            if not env.get("SYNC_RELAY_" + x):
+                novo["SYNC_RELAY_" + x] = env["SYNCLABS_RELAY_" + x]
+    return novo, usados
+
+
+def modo(cfg, env, sessao=None):
+    """Session mode (typed by the user) > SYNC_RELAY_MODE > config. `on` in a session keeps `force` if the env asked for it."""
     m = env.get("SYNC_RELAY_MODE")
-    return m if m in ("off", "remind", "enforce", "force") else cfg["mode"]
+    m = m if m in ("off", "remind", "enforce", "force") else None
+    if sessao:
+        return "force" if sessao == "enforce" and m == "force" else sessao
+    return m or cfg["mode"]
 
 
 def pasta_configurada(valor, env, home, nt):
@@ -415,15 +452,189 @@ def tipo_sessao(d, cli, cfg, env, forcar, ignorar_sub=False):
     return orig in cfg["codex_interactive_originators"]
 
 
-def avisar_uma_vez(d, pasta):
-    """True only the first time per session id (marker file in the handoff folder)."""
+def marcar(pasta, nome):
+    """True only the first time this marker file is created in the handoff folder."""
     if pasta_segura(pasta, True) is None:
         return False
-    sid = re.sub(r"[^A-Za-z0-9]", "", str(d.get("session_id") or ""))[:24] or "nosid"
     try:
-        os.close(os.open(os.path.join(pasta, "_detect-" + sid + ".flag"), os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600))
+        os.close(os.open(os.path.join(pasta, nome), os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600))
         return True
     except OSError:
+        return False
+
+
+def avisar_uma_vez(d, pasta):
+    """True only the first time per session id (marker file in the handoff folder)."""
+    sid = re.sub(r"[^A-Za-z0-9]", "", str(d.get("session_id") or ""))[:24] or "nosid"
+    return marcar(pasta, "_detect-" + sid + ".flag")
+
+
+# ---------- mode of one session (v0.2.1) ----------
+def chave_sessao(d, cli, env):
+    """Claude: the process (CLAUDE_PID is the same across /clear, the session id is not); else the session id. The mod
+    repeats this rule (hooks/register.tsx): `p<pid>` or `s<id, letters and digits, 24>`; None = no way to tell."""
+    pid = env.get("CLAUDE_PID") or ""
+    if cli == "claude" and re.fullmatch(r"[0-9]{1,10}", pid):
+        return "p" + pid
+    sid = re.sub(r"[^A-Za-z0-9]", "", str(d.get("session_id") or ""))[:24]
+    return "s" + sid if sid else None
+
+
+def modo_da_sessao(chave, pasta):
+    """off, remind or enforce as the user set it for this session; None if none. Touches an old file so a session
+    open for days keeps it out of the weekly cleanup."""
+    if not chave or pasta_segura(pasta, False) is None:
+        return None
+    f = os.path.join(pasta, "_modo-%s.txt" % chave)
+    try:
+        st = os.lstat(f)
+        if not stat.S_ISREG(st.st_mode):
+            return None
+        with open(f, encoding="utf-8") as fh:
+            v = fh.read(16).strip()
+        if time.time() - st.st_mtime > 86400:
+            os.utime(f)
+        return v if v in MODOS_SESSAO.values() else None
+    except OSError:
+        return None
+
+
+def gravar_modo(chave, pasta, valor):
+    if not chave or pasta_segura(pasta, True) is None:
+        return False
+    try:
+        with open(os.path.join(pasta, "_modo-%s.txt" % chave), "w", encoding="utf-8") as f:
+            f.write(valor)
+        return True
+    except OSError:
+        return False
+
+
+# ---------- what the lock lets through on the main session (v0.2.1) ----------
+def _padrao_vale(p):
+    return bool(re.search(r"[^\s*?\[\]!]", p))  # a pattern made only of wildcards would free everything
+
+
+def _casa(tokens, padrao):
+    """Token by token (fnmatch inside a token). A last `*` after other tokens stands for one or more words."""
+    pt = padrao.split()
+    if not pt:
+        return False
+    if len(pt) > 1 and pt[-1] == "*":
+        return len(tokens) >= len(pt) and all(fnmatchcase(t, p) for t, p in zip(tokens, pt[:-1]))
+    return len(tokens) == len(pt) and all(fnmatchcase(t, p) for t, p in zip(tokens, pt))
+
+
+def por_padroes(cmd, padroes, negativos=True):
+    """True if the whole command is ONE simple command (no shell metacharacter: the only fixed rule) that matches a
+    pattern. `!x` entries (negativos) deny when any argument matches x. shortcut: no quote parsing, so a quoted
+    metacharacter is also refused; upgrade only if that gets in the way."""
+    if not isinstance(cmd, str) or NAO_E_COMANDO_SIMPLES.search(cmd):
+        return False
+    tokens = cmd.split()
+    if not tokens:
+        return False
+    if negativos and any(fnmatchcase(t, p[1:]) for p in padroes if p.startswith("!") for t in tokens[1:]):
+        return False
+    return any(_casa(tokens, p) for p in padroes if not p.startswith("!") and _padrao_vale(p))
+
+
+def _caminho(arq, cwd):
+    return arq if os.path.isabs(arq) else os.path.join(cwd or "", arq)
+
+
+def arquivo_pequeno(arq, cwd, max_kb):
+    """True if the file does not exist (the command fails by itself) or is a regular file up to max_kb."""
+    c = _caminho(arq, cwd)
+    try:
+        st = os.stat(c)
+    except OSError:
+        return not os.path.exists(c)  # exists but unreadable: no
+    return stat.S_ISREG(st.st_mode) and st.st_size <= max_kb * 1024
+
+
+def tamanho_ok(cmd, cwd, max_kb):
+    """cat, head and tail: every file argument within max_kb, and at least one (no file = reads stdin, never ends)."""
+    t = cmd.split()
+    if os.path.basename(t[0]) not in ("cat", "head", "tail"):
+        return True
+    args = [a for a in t[1:] if not a.startswith("-")]
+    return bool(args) and all(arquivo_pequeno(a, cwd, max_kb) for a in args)  # shortcut: `head -n 5` alone passes (the 5 counts as an argument); upgrade if seen
+
+
+def leitura_ok(ti, cwd, cfg):
+    """Read: `limit` within read_max_lines, or a file within read_max_kb."""
+    f = ti.get("file_path")
+    if not isinstance(f, str) or not f:
+        return False
+    lim = ti.get("limit")
+    if type(lim) is int and 0 < lim <= cfg["read_max_lines"]:
+        return True
+    return arquivo_pequeno(f, cwd, cfg["read_max_kb"])
+
+
+def arquivo_do_repo(cwd):
+    """(path, allowed_commands) of the nearest valid .claude/sync_relay.json from cwd up to the git root (cwd only when
+    there is no repo). A broken file is ignored. It only loosens the lock."""
+    if not isinstance(cwd, str) or not os.path.isabs(cwd):
+        return None, []
+    pastas, atual = [], cwd
+    while True:
+        pastas.append(atual)
+        if os.path.lexists(os.path.join(atual, ".git")):
+            break
+        pai = os.path.dirname(atual)
+        if pai == atual:
+            pastas = [cwd]
+            break
+        atual = pai
+    for p in pastas:
+        arq = os.path.join(p, ".claude", "sync_relay.json")
+        j = _json_dict(arq)
+        lista = j.get("allowed_commands") if j else None
+        if isinstance(lista, list) and lista and len(lista) <= 100 and all(isinstance(x, str) and x for x in lista):
+            return arq, lista
+    return None, []
+
+
+def liberada(d, cfg, pasta, cli, env, t):
+    """(True, message or None) when the main session may run this tool call: the read exception (allow_reads) or the
+    repo file. The message is the one-time notice of the first release by the repo file."""
+    ti = d.get("tool_input") if isinstance(d.get("tool_input"), dict) else {}
+    cwd = d.get("cwd") if isinstance(d.get("cwd"), str) else ""
+    nome = d.get("tool_name")
+    if nome == "Read":
+        return cfg["allow_reads"] and leitura_ok(ti, cwd, cfg), None
+    cmd = ti.get("command")
+    if nome != "Bash" or not isinstance(cmd, str):
+        return False, None
+    if cfg["allow_reads"] and por_padroes(cmd, cfg["read_commands"]) and tamanho_ok(cmd, cwd, cfg["read_max_kb"]):
+        return True, None
+    arq, lista = arquivo_do_repo(cwd)
+    if lista and por_padroes(cmd, lista, False) and tamanho_ok(cmd, cwd, cfg["read_max_kb"]):
+        k = chave_sessao(d, cli, env)
+        return True, t("repo_released", file=arq, cmd=cmd) if k and marcar(pasta, "_repo-%s.flag" % k) else None
+    return False, None
+
+
+def segura_subagente(pasta, agent_id):
+    """True while this subagent has been held at most MAX_BLOCOS_SUB times (counter file); no counter = no hold."""
+    aid = re.sub(r"[^A-Za-z0-9_-]", "", str(agent_id or ""))[:64]
+    if not aid or pasta_segura(pasta, True) is None:
+        return False
+    f = os.path.join(pasta, "_sub-%s.n" % aid)
+    try:
+        try:
+            with open(f, encoding="utf-8") as fh:
+                n = int(fh.read(8).strip() or 0)
+        except FileNotFoundError:
+            n = 0
+        if n >= MAX_BLOCOS_SUB:
+            return False
+        with open(f, "w", encoding="utf-8") as fh:
+            fh.write(str(n + 1))
+        return True
+    except (OSError, ValueError):
         return False
 
 
@@ -603,6 +814,8 @@ def tabela(cfg, t, cli):
             partes.append("%s=%s" % (rot[1], r["model"]))
         partes.append("%s=%s" % (rot[2], r["effort"]))
         linhas.append(t("tier_" + camada, spec=", ".join(partes)))
+    if claude:
+        linhas.append(t("long_command"))
     texto = t("routing_header", tool="Agent" if claude else "spawn_agent", tiers="\n".join(linhas),
               max=cfg["report_max_chars"])
     if cfg["report_max_chars"] <= 0:  # the last line is the report-size contract
@@ -717,11 +930,15 @@ def processar(d, cli, env, home, nt):
     evento = d.get("hook_event_name")
     if evento not in EVENTOS:
         return None, None
+    env, antigos = aliasar(env)
     cfg = ler_config(env, home, nt)
-    m = modo(cfg, env)
-    pedido = evento == "UserPromptSubmit" and (d.get("prompt") or "").strip().lower().lstrip("/") in PALAVRAS_HANDOFF
+    texto = " ".join(d["prompt"].lower().split()).lstrip("/") if evento == "UserPromptSubmit" and isinstance(d.get("prompt"), str) else ""
+    pedido = texto in PALAVRAS_HANDOFF
+    troca = texto[:6] == "relay " and texto[6:] in MODOS_SESSAO  # `relay off|remind|on`, the whole message
     # SessionStart creates too: it must resolve the folder exactly as the request did, or the handoff is never found
-    pasta = escolher_pasta(cfg, env, home, nt, pedido or evento == "SessionStart")
+    pasta = escolher_pasta(cfg, env, home, nt, pedido or troca or evento == "SessionStart")
+    chave = chave_sessao(d, cli, env)
+    m = modo(cfg, env, modo_da_sessao(chave, pasta))
     if evento == "SessionStart" and pasta_segura(pasta, False):
         limpar(pasta, pasta == handoff_dir({}, env, home, nt))
     # the handoff Write is allowed in any mode: it only reaches this session's own handoff file
@@ -742,11 +959,20 @@ def processar(d, cli, env, home, nt):
     else:
         trava = m in ("enforce", "force")
         lembra = m != "off"
+    if troca and tipo is not False:  # only the user's own message gets here: a hook input, never a model tool call
+        ok = gravar_modo(chave, pasta, MODOS_SESSAO[texto[6:]])
+        return {"systemMessage": t("mode_" + texto[6:] if ok else "mode_failed"),
+                "hookSpecificOutput": {"hookEventName": evento, "additionalContext": t("mode_ack")}}, None
+    if antigos and evento in ("UserPromptSubmit", "SessionStart") and marcar(pasta, "_alias-%s.flag" % (chave or "nosid")):
+        aviso = {"systemMessage": chr(10).join(x for x in ((aviso or {}).get("systemMessage"), t("alias_warn", names=", ".join(antigos))) if x)}
     if evento == "PreToolUse":
         if not trava or d.get("tool_name") in LIVRES or d.get("tool_name") in cfg["allowed_tools"]:
             return None, None
         if cli == "claude" and escrita_do_handoff(d, pasta):
             return None, None
+        livre, nota = liberada(d, cfg, pasta, cli, env, t)
+        if livre:
+            return ({"systemMessage": nota} if nota else None), None
         return {"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny",
                                        "permissionDecisionReason": t("denied")}}, None
     if evento == "UserPromptSubmit":
@@ -800,6 +1026,12 @@ def processar(d, cli, env, home, nt):
             if n >= troca:
                 return {"systemMessage": t("stop_warning", total=n // 1000, extra=(n - piso) // 1000,
                                            limit=troca // 1000)}, None
+    if evento == "SubagentStop" and lembra and not d.get("stop_hook_active"):
+        # Claude Code sends every Bash over ~180 s to the background; the subagent would end and its result never come back
+        tarefas = d.get("background_tasks") if isinstance(d.get("background_tasks"), list) else []
+        vivas = [x for x in tarefas if isinstance(x, dict) and x.get("type") in ("shell", "monitor") and x.get("status") not in FIM_DE_TAREFA]
+        if vivas and segura_subagente(pasta, d.get("agent_id")):
+            return {"decision": "block", "reason": t("sub_wait", n=len(vivas))}, None
     if evento == "SubagentStop" and trava and not d.get("stop_hook_active"):
         msg = d.get("last_assistant_message")
         limite = cfg["report_max_chars"]

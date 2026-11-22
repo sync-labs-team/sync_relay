@@ -14,7 +14,7 @@ Search the existing issues first. If one covers it, add what is new as a comment
 
 ## What makes a good issue
 
-- Plugin version (`claude plugin list` or `codex plugin list`) and whether you use Claude Code or Codex.
+- Plugin version (`claude plugin list` or `codex plugin list`, the name is `sync-relay`) and whether you use Claude Code or Codex.
 - CLI and its version (`claude --version`, `codex --version`).
 - Operating system. Only Windows has been tested, so reports from macOS and Linux are welcome.
 - The steps, as short as you can make them, what you expected and what happened, with the exact output.

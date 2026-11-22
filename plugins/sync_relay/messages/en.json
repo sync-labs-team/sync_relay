@@ -1,6 +1,6 @@
 {
   "reminder": "[relay] The main session only orchestrates: anything that needs a tool (read, search, run, write, web, MCP) goes to a subagent, using the delegation table from session start. A question that needs no tool: answer it directly.",
-  "denied": "sync_relay: the main session only orchestrates and this tool is work. Delegate it to a subagent (Claude: Agent; Codex: spawn_agent) using the delegation table. To turn the lock off for one session, start the CLI with SYNC_RELAY_MODE=off; to keep it off, set \"mode\" to \"remind\" or \"off\" in the config file.",
+  "denied": "sync_relay: the main session only orchestrates and this tool is work. Delegate it to a subagent (Claude: Agent; Codex: spawn_agent) using the delegation table. To turn the lock off for THIS session only, type `/relay off` (or just `relay off` without the mod, or in Codex); `relay remind` keeps only the reminder, `relay on` brings the lock back. To change it for good, set \"mode\" in the config file; to let a command through, see \"read_commands\" and .claude/sync_relay.json in the docs.",
   "routing_header": "[relay] Delegation table. Call {tool} with:\n{tiers}\nAsk each subagent for: what it did, the decision, the evidence, what is left; at most {max} characters; long detail goes to a file and only the path comes back.",
   "tier_lookup": "- look up, read, search: {spec}",
   "tier_judgment": "- technical judgment, summary, compare options: {spec}",
@@ -16,5 +16,14 @@
   "report_too_long": "Your report is over {max} characters. Send it again within {max}: what you did, the decision, the evidence, what is left. Put long detail in a file and give only its path.",
   "detect_failed": "sync_relay: lock off. Could not tell whether this session is interactive (the CLI did not expose the signal), so no tool is blocked. Set SYNC_RELAY_MODE=force to force the lock.",
   "handoff_dir_unusable": "sync_relay: could not create the handoff folder (the configured one and the default are both unusable), so the handoff was not requested. Set \"handoff_dir\" to a writable absolute path in the config file.",
-  "routing_cut": "[routing table cut] It did not fit with the handoff in the context limit."
+  "routing_cut": "[routing table cut] It did not fit with the handoff in the context limit.",
+  "mode_off": "sync_relay: lock OFF for this session (no reminder either). `relay on` brings it back.",
+  "mode_remind": "sync_relay: reminder only for this session (nothing is blocked). `relay on` brings the lock back.",
+  "mode_on": "sync_relay: lock ON for this session.",
+  "mode_ack": "[relay] The user changed the lock mode for this session. Nothing to do: reply only \"ok\".",
+  "mode_failed": "sync_relay: could not save the mode for this session (no usable state folder or session id); nothing changed. Set \"mode\" in the config file or SYNC_RELAY_MODE.",
+  "repo_released": "sync_relay: {file} released `{cmd}` in this session",
+  "alias_warn": "sync_relay: the variable(s) {names} still work, but they go away in 0.4.0. Use the SYNC_RELAY_* name instead.",
+  "sub_wait": "{n} background task(s) of this session are still running (Claude Code sends every Bash over about 180 s to the background). Do not return a partial result: wait for the end notice and only then send your final report.",
+  "long_command": "- long command: Claude Code sends every Bash over ~180 s to the background; wait for the end notice and return the final result, never only a partial one."
 }

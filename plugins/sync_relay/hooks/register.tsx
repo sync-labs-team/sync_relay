@@ -3,33 +3,33 @@ import type { EngineInterface as Engine, Register, Timer } from 'claude-code'
 
 import type { PassagemFase } from '../types'
 
-const tokens = atom({ plugin: 'sync_relay', key: 'tokens' } as const, null)
+const tokens = atom({ plugin: 'sync-relay', key: 'tokens' } as const, null)
 // piso: menor contexto visto desde o session.start ou /clear (o que a sessao ja nasce carregando).
-const piso = atom({ plugin: 'sync_relay', key: 'piso' } as const, null)
-const adiado = atom({ plugin: 'sync_relay', key: 'adiado' } as const, null)
-const fase = atom({ plugin: 'sync_relay', key: 'fase' } as const, 'ocioso' as PassagemFase)
+const piso = atom({ plugin: 'sync-relay', key: 'piso' } as const, null)
+const adiado = atom({ plugin: 'sync-relay', key: 'adiado' } as const, null)
+const fase = atom({ plugin: 'sync-relay', key: 'fase' } as const, 'ocioso' as PassagemFase)
 // Modo automatico: ligado (persiste em $.store, chave 'auto'), sessao interativa e segundos que faltam na contagem.
-const auto = atom({ plugin: 'sync_relay', key: 'auto' } as const, false)
+const auto = atom({ plugin: 'sync-relay', key: 'auto' } as const, false)
 // Apresentacao unica da primeira instalacao: vista (persiste em $.store, chave 'apresentado'). O padrao do auto e desligado.
-const apresentado = atom({ plugin: 'sync_relay', key: 'apresentado' } as const, false)
+const apresentado = atom({ plugin: 'sync-relay', key: 'apresentado' } as const, false)
 // Botao fixo "sync_relay auto" acima do campo (sem faixa): /relay button grava no $.store (chave 'botao') e vale em todas as
 // sessoes; sem nada no store vale a chave `button` do config.json (true se faltar).
-const botaoFixo = atom({ plugin: 'sync_relay', key: 'botao' } as const, true)
+const botaoFixo = atom({ plugin: 'sync-relay', key: 'botao' } as const, true)
 // ponto de auto-compactacao da CLI (C) e de onde veio; medido a cada turno (modelo, env e settings podem mudar).
-const compact = atom({ plugin: 'sync_relay', key: 'compact' } as const, null)
-const interativo = atom({ plugin: 'sync_relay', key: 'interativo' } as const, false)
-const restante = atom({ plugin: 'sync_relay', key: 'restante' } as const, 0)
+const compact = atom({ plugin: 'sync-relay', key: 'compact' } as const, null)
+const interativo = atom({ plugin: 'sync-relay', key: 'interativo' } as const, false)
+const restante = atom({ plugin: 'sync-relay', key: 'restante' } as const, 0)
 // A espera por agentes passou de 60 s: a faixa oferece "Trocar mesmo assim".
-const demorou = atom({ plugin: 'sync_relay', key: 'demorou' } as const, false)
+const demorou = atom({ plugin: 'sync-relay', key: 'demorou' } as const, false)
 // O $.state e por sessao (id): depois do /clear a sessao nova nasce com os padroes. Ate o iniciar() dela, nada e desenhado.
-const carregado = atom({ plugin: 'sync_relay', key: 'carregado' } as const, false)
+const carregado = atom({ plugin: 'sync-relay', key: 'carregado' } as const, false)
 
 // D of the switch rule (tokens above the session baseline, capped at 80% of the way to compaction: see pontoDeTroca).
 // Overridden by config `threshold_tokens` and, for one session, by SYNC_RELAY_THRESHOLD.
 export const LIMIAR_ACIMA = 150_000
 const LIMIAR_MIN = 5_000
 const LIMIAR_MAX = 900_000
-const limiar = atom({ plugin: 'sync_relay', key: 'limiar' } as const, LIMIAR_ACIMA)
+const limiar = atom({ plugin: 'sync-relay', key: 'limiar' } as const, LIMIAR_ACIMA)
 // "Depois" (e Cancelar) esconde a faixa ate o contexto crescer mais isto.
 const DE_NOVO = 50_000
 // Aviso antes da troca automatica, em segundos.
@@ -252,7 +252,7 @@ async function ambiente($: Engine): Promise<Ambiente> {
   const windows = info.platform === 'windows'
   // $.env.get needs a literal name at each call site (the engine lists the variables a module reads).
   const g = (v: string | undefined | Promise<string | undefined>): Promise<string | undefined> => Promise.resolve(v).then(x => x || undefined, () => undefined)
-  const [LOCALAPPDATA, APPDATA, XDG_STATE_HOME, XDG_CONFIG_HOME, HOME, USERPROFILE, SYNC_RELAY_CONFIG, SYNC_RELAY_LANG, SYNC_RELAY_MODE, CLAUDE_CONFIG_DIR, CLAUDE_CODE_AUTO_COMPACT_WINDOW, CLAUDE_CODE_DISABLE_1M_CONTEXT, CLAUDE_AUTOCOMPACT_PCT_OVERRIDE] = await Promise.all([
+  const [LOCALAPPDATA, APPDATA, XDG_STATE_HOME, XDG_CONFIG_HOME, HOME, USERPROFILE, NOVO_CONFIG, NOVO_LANG, NOVO_MODE, CLAUDE_CONFIG_DIR, CLAUDE_CODE_AUTO_COMPACT_WINDOW, CLAUDE_CODE_DISABLE_1M_CONTEXT, CLAUDE_AUTOCOMPACT_PCT_OVERRIDE, VELHO_CONFIG, VELHO_LANG, VELHO_MODE] = await Promise.all([
     g($.env.get('LOCALAPPDATA')),
     g($.env.get('APPDATA')),
     g($.env.get('XDG_STATE_HOME')),
@@ -266,7 +266,14 @@ async function ambiente($: Engine): Promise<Ambiente> {
     g($.env.get('CLAUDE_CODE_AUTO_COMPACT_WINDOW')),
     g($.env.get('CLAUDE_CODE_DISABLE_1M_CONTEXT')),
     g($.env.get('CLAUDE_AUTOCOMPACT_PCT_OVERRIDE')),
+    g($.env.get('SYNCLABS_RELAY_CONFIG')),
+    g($.env.get('SYNCLABS_RELAY_LANG')),
+    g($.env.get('SYNCLABS_RELAY_MODE')),
   ])
+  // the old name stands in only when the new one is not set (same rule as the core script)
+  const SYNC_RELAY_CONFIG = NOVO_CONFIG ?? VELHO_CONFIG
+  const SYNC_RELAY_LANG = NOVO_LANG ?? VELHO_LANG
+  const SYNC_RELAY_MODE = NOVO_MODE ?? VELHO_MODE
   const env: Env = {
     LOCALAPPDATA, APPDATA, XDG_STATE_HOME, XDG_CONFIG_HOME, HOME, USERPROFILE, SYNC_RELAY_CONFIG, SYNC_RELAY_LANG,
     SYNC_RELAY_MODE, CLAUDE_CONFIG_DIR, CLAUDE_CODE_AUTO_COMPACT_WINDOW, CLAUDE_CODE_DISABLE_1M_CONTEXT, CLAUDE_AUTOCOMPACT_PCT_OVERRIDE,
@@ -346,9 +353,18 @@ const MSG = {
     statusProgress: '{0}k of {1}k',
     switching: 'switching…',
     measuring: 'measuring',
-    cmdDescription: 'Writes this session\'s handoff and opens a new one with it. "/relay auto" turns the automatic switch on or off; "/relay status" shows the state; "/relay button" hides or shows the button.',
-    usage: 'Usage: /relay (switch now), /relay auto (turn the automatic switch on or off), /relay status (show the state) or /relay button (hide or show the button).',
+    cmdDescription: 'Writes this session\'s handoff and opens a new one with it. "/relay auto" turns the automatic switch on or off; "/relay status" shows the state; "/relay button" hides or shows the button; "/relay off", "/relay remind" and "/relay on" set the lock for this session only.',
+    usage: 'Usage: /relay (switch now), /relay auto (turn the automatic switch on or off), /relay status (show the state), /relay button (hide or show the button) or /relay off | remind | on (the lock, this session only).',
     status: 'Lock: {0} · auto: {1} · context: {2} · switch at {3} · handoffs: {4} · button: {5}',
+    modeOff: 'sync_relay: lock OFF for this session (no reminder either). /relay on brings it back.',
+    modeRemind: 'sync_relay: reminder only for this session (nothing is blocked). /relay on brings the lock back.',
+    modeOn: 'sync_relay: lock ON for this session.',
+    modeFailed: 'sync_relay: could not save the mode for this session; nothing changed.',
+    originSession: 'this session',
+    originEnv: 'SYNC_RELAY_MODE',
+    originConfig: 'config file',
+    originDefault: 'default',
+    aliasOld: 'sync_relay: {0} still works, but goes away in 0.4.0. Use the SYNC_RELAY_* name instead.',
     buttonVisible: 'visible',
     buttonHiddenWord: 'hidden',
     statusSwitch: '{0}k = floor {1}k + {2}k (compaction at {3}k: {4})',
@@ -407,9 +423,18 @@ const MSG = {
     statusProgress: '{0}k de {1}k',
     switching: 'trocando…',
     measuring: 'medindo',
-    cmdDescription: 'Grava a passagem desta sessão e abre uma nova já com ela. "/relay auto" liga ou desliga a troca automática; "/relay status" mostra o estado; "/relay button" esconde ou mostra o botão.',
-    usage: 'Uso: /relay (troca agora), /relay auto (liga ou desliga a troca automática), /relay status (mostra o estado) ou /relay button (esconde ou mostra o botão).',
+    cmdDescription: 'Grava a passagem desta sessão e abre uma nova já com ela. "/relay auto" liga ou desliga a troca automática; "/relay status" mostra o estado; "/relay button" esconde ou mostra o botão; "/relay off", "/relay remind" e "/relay on" ajustam a trava só nesta sessão.',
+    usage: 'Uso: /relay (troca agora), /relay auto (liga ou desliga a troca automática), /relay status (mostra o estado), /relay button (esconde ou mostra o botão) ou /relay off | remind | on (a trava, só nesta sessão).',
     status: 'Trava: {0} · auto: {1} · contexto: {2} · troca em {3} · passagens: {4} · botão: {5}',
+    modeOff: 'sync_relay: trava DESLIGADA nesta sessão (sem lembrete também). /relay on religa.',
+    modeRemind: 'sync_relay: só o lembrete nesta sessão (nada é bloqueado). /relay on traz a trava de volta.',
+    modeOn: 'sync_relay: trava LIGADA nesta sessão.',
+    modeFailed: 'sync_relay: não deu para gravar o modo desta sessão; nada mudou.',
+    originSession: 'nesta sessão',
+    originEnv: 'SYNC_RELAY_MODE',
+    originConfig: 'arquivo de configuração',
+    originDefault: 'padrão',
+    aliasOld: 'sync_relay: {0} ainda vale, mas sai na 0.4.0. Use o nome SYNC_RELAY_*.',
     buttonVisible: 'visível',
     buttonHiddenWord: 'oculto',
     statusSwitch: '{0}k = piso {1}k + {2}k (compactação em {3}k: {4})',
@@ -561,11 +586,16 @@ const kt = (v: number): string => `${+(v / 1000).toFixed(1)}k`
 // valor valido, auto e limiar valem no modulo (sobrevive ao /clear, mesmo processo) e NADA disso vai ao $.store, que e de todas
 // as sessoes. Comando e botao mudam so este objeto.
 let sobre: { auto?: boolean; limiar?: number } | null = null
+// Old SYNCLABS_RELAY_* names seen at session.start: one toast each, after the language is known.
+let velhos: string[] = []
 // Aviso "so nesta sessao": so quando o env fixou o auto (o limiar sozinho nao impede o auto de ir ao store).
 const soSessao = (): string => (sobre?.auto !== undefined ? tx('thisSession') : '')
 
 async function lerSobrescrita($: Engine): Promise<void> {
-  const [l, a] = await Promise.all([$.env.get('SYNC_RELAY_THRESHOLD'), $.env.get('SYNC_RELAY_AUTO')])
+  const [l0, a0, lv, av] = await Promise.all([$.env.get('SYNC_RELAY_THRESHOLD'), $.env.get('SYNC_RELAY_AUTO'), $.env.get('SYNCLABS_RELAY_THRESHOLD'), $.env.get('SYNCLABS_RELAY_AUTO')])
+  const l = l0 || lv
+  const a = a0 || av
+  for (const [nome, v] of [['SYNCLABS_RELAY_THRESHOLD', lv], ['SYNCLABS_RELAY_AUTO', av]] as const) if (v) velhos.push(nome)
   const o: { auto?: boolean; limiar?: number } = {}
   const ruim: string[] = []
   if (l !== undefined && l !== '') {
@@ -582,14 +612,51 @@ async function lerSobrescrita($: Engine): Promise<void> {
   if (sobre) rastro($, `sobrescrita env limiar=${sobre.limiar ?? '-'} auto=${sobre.auto === undefined ? '-' : sobre.auto ? 1 : 0}`)
 }
 
+/**
+ * Key of this session's mode file (same rule as the core script): `p<pid>` (CLAUDE_PID of the hook env: the same across
+ * /clear, one per process) or `s<session id, letters and digits, 24>`; null = no way to tell.
+ */
+async function chaveSessao($: Engine): Promise<string | null> {
+  const pid = await $.process.hookEnv().then(e => e.CLAUDE_PID, () => undefined)
+  if (/^[0-9]{1,10}$/.test(pid ?? '')) return `p${pid}`
+  const id = (await $.session.id().catch(() => '')).replace(/[^A-Za-z0-9]/g, '').slice(0, 24)
+  return id === '' ? null : `s${id}`
+}
+
+/** off | remind | enforce set by the user for this session (file <handoffs>/_modo-<key>.txt), or null. */
+async function modoDaSessao($: Engine): Promise<string | null> {
+  try {
+    const [chave, pasta] = await Promise.all([chaveSessao($), pastaPassagens($)])
+    if (chave === null || pasta === null) return null
+    const v = String(await $.fs.read(`${pasta}/_modo-${chave}.txt`)).trim()
+    return v === 'off' || v === 'remind' || v === 'enforce' ? v : null
+  } catch {
+    return null
+  }
+}
+
+/** `/relay off|remind|on`: only the person gets here (a command, never a model tool call). Valid for this session only. */
+async function definirModo($: Engine, arg: 'off' | 'remind' | 'on'): Promise<string> {
+  try {
+    const [chave, pasta] = await Promise.all([chaveSessao($), pastaPassagens($)])
+    if (chave === null || pasta === null) return tx('modeFailed')
+    await $.fs.write(`${pasta}/_modo-${chave}.txt`, arg === 'on' ? 'enforce' : arg)
+    return tx(arg === 'off' ? 'modeOff' : arg === 'remind' ? 'modeRemind' : 'modeOn')
+  } catch {
+    return tx('modeFailed')
+  }
+}
+
 /** Text of `/relay status`: lock mode, auto, context, switch point (with its origin) and the handoff folder. */
 async function textoStatus($: Engine): Promise<string> {
-  const [ligado, n, pi, lim, comp, botao, amb, pasta] = await Promise.all([
+  const [ligado, n, pi, lim, comp, botao, amb, pasta, daSessao] = await Promise.all([
     read($, auto), read($, tokens), read($, piso), read($, limiar), read($, compact), read($, botaoFixo),
-    ambiente($).catch((): Ambiente | null => null), pastaPassagens($).catch(() => null),
+    ambiente($).catch((): Ambiente | null => null), pastaPassagens($).catch(() => null), modoDaSessao($),
   ])
   const modoEnv = amb?.env.SYNC_RELAY_MODE
-  const modo = modoEnv && ['off', 'remind', 'enforce', 'force'].includes(modoEnv) ? modoEnv : (amb?.config.mode ?? 'enforce')
+  const envValido = modoEnv && ['off', 'remind', 'enforce', 'force'].includes(modoEnv) ? modoEnv : undefined
+  const modo = daSessao ?? envValido ?? amb?.config.mode ?? 'enforce'
+  const origemModo = tx(daSessao ? 'originSession' : envValido ? 'originEnv' : amb?.config.mode ? 'originConfig' : 'originDefault')
   const k = (v: number): number => Math.round(v / 1000)
   let troca = tx('measuring')
   if (pi !== null) {
@@ -599,7 +666,7 @@ async function textoStatus($: Engine): Promise<string> {
     const origem = tx(base === 'env' ? 'origEnv' : base === 'settings' ? 'origSettings' : 'origModel') + (pct ? tx('origPct') : '')
     troca = tx(c !== null && t - pi < lim ? 'statusSwitchCapped' : 'statusSwitch', k(t), k(pi), k(t - pi), c === null ? 0 : k(c), origem)
   }
-  return tx('status', modo, ligado ? tx('on') : tx('off'), n === null ? tx('measuring') : tx('statusTokens', k(n)), troca, pasta ?? '-', tx(botao ? 'buttonVisible' : 'buttonHiddenWord'))
+  return tx('status', `${modo} (${origemModo})`, ligado ? tx('on') : tx('off'), n === null ? tx('measuring') : tx('statusTokens', k(n)), troca, pasta ?? '-', tx(botao ? 'buttonVisible' : 'buttonHiddenWord'))
 }
 
 /** Linha de status fixa ($.ui.status: uma por plugin, ao lado da statusLine do usuario): auto, quanto falta, ou trocando. */
@@ -1081,6 +1148,7 @@ export const register: Register = on => {
     avisouSemPasta = false
     await lerSobrescrita($)
     await iniciar($, 'session.start', e.isInteractive)
+    for (const nome of velhos.splice(0)) $.ui.toast(tx('aliasOld', nome))
     await $.command.register({ name: 'relay', description: tx('cmdDescription') })
     rastro($, async () => `session.start id=${await $.session.id()} interativo=${e.isInteractive}`)
     return next(e)
@@ -1095,6 +1163,7 @@ export const register: Register = on => {
     }
     if (arg === 'button') return { text: await alternarBotao($, 'comando') }
     if (arg === 'status') return { text: await textoStatus($) }
+    if (arg === 'off' || arg === 'remind' || arg === 'on') return { text: await definirModo($, arg) }
     if (arg !== '') return { text: tx('usage') }
     const f = await read($, fase)
     if (f === 'pronta') return { text: tx('alreadySaved', await arquivo($)) }

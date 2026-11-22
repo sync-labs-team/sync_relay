@@ -2,7 +2,7 @@
 
 [English](README.md) | [Português](README.pt-BR.md) | Español
 
-![License: MIT](https://img.shields.io/badge/license-MIT-blue) ![Version 0.2.0](https://img.shields.io/badge/version-0.2.0-informational) ![CLI: Claude Code | Codex (untested)](https://img.shields.io/badge/CLI-Claude%20Code%20%7C%20Codex%20(sin%20probar)-lightgrey)
+![License: MIT](https://img.shields.io/badge/license-MIT-blue) ![Version 0.2.1](https://img.shields.io/badge/version-0.2.1-informational) ![CLI: Claude Code | Codex (untested)](https://img.shields.io/badge/CLI-Claude%20Code%20%7C%20Codex%20(sin%20probar)-lightgrey)
 
 Mantiene la sesión principal solo en la orquestación, envía el trabajo a subagentes y pasa una sesión larga a una nueva, con un archivo de traspaso, antes de que el contexto salga caro.
 
@@ -12,14 +12,14 @@ Claude Code:
 
 ```sh
 claude plugin marketplace add Sync-Labs-team/sync_relay
-claude plugin install sync_relay@sync_relay
+claude plugin install sync-relay@sync-relay
 ```
 
 Codex (sin probar en una sesión real, ver [CLI compatibles](#cli-compatibles)):
 
 ```sh
 codex plugin marketplace add Sync-Labs-team/sync_relay
-codex plugin add sync_relay@sync_relay
+codex plugin add sync-relay@sync-relay
 ```
 
 Necesita Python 3.9 o superior como `python3`. En Claude Code el mismo plugin también añade el comando `/relay`, un botón y una línea de estado. Actualización, desinstalación y problemas frecuentes: [docs/faq.md](docs/faq.md) (en inglés).
@@ -31,7 +31,7 @@ Necesita Python 3.9 o superior como `python3`. En Claude Code el mismo plugin ta
 - El punto de cambio automático sigue la ventana del modelo: 180k tokens con una ventana de 1M de Claude, 166k con 200K, 102k con un límite de 120k de Codex (primera respuesta en 30k tokens). Regla: [docs/how-it-works.md](docs/how-it-works.md).
 - El hook cuesta unos 196 ms por llamada en Windows con el atajo `python3` de la Microsoft Store, y unos 26 ms de intérprete con el Python de python.org.
 - 0 llamadas de red. Todo queda en tu perfil de usuario. El texto del traspaso está limitado a 9.000 caracteres.
-- 90 pruebas de los hooks y del script, 182 del mod de Claude Code.
+- 120 pruebas de los hooks y del script, 189 del mod de Claude Code.
 
 ## Inicio rápido
 
@@ -48,10 +48,14 @@ En Claude Code, `/relay` hace los pasos 2 y 3 por ti, y `/relay auto` los hace s
 | `/relay` | Guarda el traspaso y abre la sesión nueva ahora (Claude Code). |
 | `/relay auto` | Activa o desactiva el cambio automático. Se recuerda entre sesiones. |
 | `/relay button` | Muestra u oculta el botón fijo `sync_relay auto: on/off` (solo hay en y pt-BR; en pt-BR dice `ligado/desligado`). Se recuerda entre sesiones. La línea de estado se queda. |
-| `/relay status` | Modo del bloqueo, auto, contexto actual, punto de cambio y su origen, carpeta de traspasos. |
+| `/relay status` | Modo del bloqueo y de dónde viene (esta sesión, `SYNC_RELAY_MODE`, archivo de configuración, valor por defecto), auto, contexto actual, punto de cambio y su origen, carpeta de traspasos. |
+| `/relay off` | Bloqueo y recordatorios desactivados SOLO en esta sesión. Sin reiniciar. |
+| `/relay remind` | Solo el recordatorio en esta sesión; no se bloquea nada. |
+| `/relay on` | El bloqueo de vuelta en esta sesión. |
 | `relay` | El mensaje completo. Igual que `/relay`, y es la forma de hacerlo en Codex (luego `/new`). |
+| `relay off`, `relay remind`, `relay on` | El mensaje completo (mayúsculas no importan, vale un `/` al inicio). Igual que los tres comandos de arriba; es la forma sin el mod y en Codex. Solo tú lo activas: el modelo no puede. |
 
-Cualquier otro argumento muestra el uso. La línea de estado, junto a la tuya, se ve así: `sync_relay: auto off · 45k of 150k` (o `measuring`, `switching…`).
+Cualquier otro argumento muestra el uso. La línea de estado, junto a la tuya, se ve así: `sync-relay: auto off · 45k of 150k` (o `measuring`, `switching…`).
 
 ## CLI compatibles
 
@@ -74,8 +78,12 @@ Un archivo JSON para las dos CLI: `%APPDATA%\sync_relay\config.json` en Windows,
 | `lang` | `auto` | `auto`, `en` o `pt-BR`. |
 | `handoff_dir` | por usuario | Dónde se guardan los archivos de traspaso. |
 | `routing` | ver docs | Agente, modelo y esfuerzo por capa y por CLI. |
+| `allow_reads` | `true` | `false` desactiva la excepción de lectura de abajo. |
+| `read_commands` | una semilla pequeña | Patrones de comando que la sesión principal bloqueada puede ejecutar. Es un punto de partida: ajústalo a tu contexto. |
 
-Para desactivarlo en una sesión, abre la CLI con `SYNC_RELAY_MODE=off`.
+Para desactivar el bloqueo en una sesión, escribe `/relay off` (o solo `relay off`). Sin reiniciar.
+
+La sesión principal también puede ejecutar algunos comandos inofensivos (`git status`, `ls`, `cat` de un archivo pequeño, `* status`...) y hacer `Read` de un archivo pequeño. Esa lista es solo una semilla en `read_commands`: cámbiala, amplíala o vacíala con `[]`. Un repositorio puede sumar la suya con `.claude/sync_relay.json`. La única regla fija: el comando entero tiene que ser UN comando simple, sin `|`, `;`, `&`, redirección, comilla invertida, `$` ni salto de línea. Detalles: [docs/configuration.md](docs/configuration.md) (en inglés).
 
 ## Cómo funciona
 

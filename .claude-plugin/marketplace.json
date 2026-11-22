@@ -1,10 +1,10 @@
 {
-  "name": "sync_relay",
+  "name": "sync-relay",
   "description": "sync_relay by Sync_Labs: main-session delegation guard and session handoff for Claude Code and Codex.",
   "owner": { "name": "Sync_Labs" },
   "plugins": [
     {
-      "name": "sync_relay",
+      "name": "sync-relay",
       "description": "Keeps the main session delegating, hands a session over to a fresh one, warns when context grows. On Claude Code: /relay command, auto button, status line.",
       "source": "./plugins/sync_relay",
       "category": "development"
