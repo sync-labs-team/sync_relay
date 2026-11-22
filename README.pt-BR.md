@@ -2,7 +2,7 @@
 
 [English](README.md) | Português | [Español](README.es.md)
 
-![License: MIT](https://img.shields.io/badge/license-MIT-blue) ![Version 0.2.0](https://img.shields.io/badge/version-0.2.0-informational) ![CLI: Claude Code | Codex (untested)](https://img.shields.io/badge/CLI-Claude%20Code%20%7C%20Codex%20(n%C3%A3o%20testado)-lightgrey)
+![License: MIT](https://img.shields.io/badge/license-MIT-blue) ![Version 0.2.1](https://img.shields.io/badge/version-0.2.1-informational) ![CLI: Claude Code | Codex (untested)](https://img.shields.io/badge/CLI-Claude%20Code%20%7C%20Codex%20(n%C3%A3o%20testado)-lightgrey)
 
 Mantém a sessão principal só na orquestração, manda o trabalho para subagentes e passa uma sessão longa para uma nova, com um arquivo de passagem, antes de o contexto ficar caro.
 
@@ -11,15 +11,15 @@ Mantém a sessão principal só na orquestração, manda o trabalho para subagen
 Claude Code:
 
 ```sh
-claude plugin marketplace add Sync-Labs-team/sync_relay
-claude plugin install sync_relay@sync_relay
+claude plugin marketplace add sync-labs-team/plugins
+claude plugin install sync-relay@sync-labs
 ```
 
 Codex (não testado numa sessão real, veja [CLIs suportadas](#clis-suportadas)):
 
 ```sh
-codex plugin marketplace add Sync-Labs-team/sync_relay
-codex plugin add sync_relay@sync_relay
+codex plugin marketplace add sync-labs-team/plugins
+codex plugin add sync-relay@sync-labs
 ```
 
 Precisa de Python 3.9 ou mais novo como `python3`. No Claude Code o mesmo plugin também acrescenta o comando `/relay`, um botão e uma linha de estado. Atualização, remoção e problemas comuns: [docs/faq.md](docs/faq.md) (em inglês).
@@ -31,7 +31,7 @@ Precisa de Python 3.9 ou mais novo como `python3`. No Claude Code o mesmo plugin
 - O ponto de troca automático segue a janela do modelo: 180k tokens numa janela de 1M do Claude, 166k em 200K, 102k num limite de 120k do Codex (primeira resposta em 30k tokens). Regra: [docs/how-it-works.md](docs/how-it-works.md).
 - O gancho custa cerca de 196 ms por chamada no Windows com o atalho `python3` da Microsoft Store, e cerca de 26 ms de interpretador com o Python do python.org.
 - 0 chamadas de rede. Tudo fica no seu perfil de usuário. O texto da passagem é limitado a 9.000 caracteres.
-- 90 testes dos ganchos e do script, 182 do mod do Claude Code.
+- 120 testes dos ganchos e do script, 189 do mod do Claude Code.
 
 ## Início rápido
 
@@ -48,10 +48,14 @@ No Claude Code, `/relay` faz os passos 2 e 3 por você, e `/relay auto` faz sozi
 | `/relay` | Grava a passagem e abre a sessão nova agora (Claude Code). |
 | `/relay auto` | Liga ou desliga a troca automática. Lembra entre sessões. |
 | `/relay button` | Mostra ou esconde o botão fixo `sync_relay auto: ligado/desligado` (en: `on/off`). Lembra entre sessões. A linha de estado fica. |
-| `/relay status` | Modo da trava, auto, contexto atual, ponto de troca e a origem dele, pasta das passagens. |
+| `/relay status` | Modo da trava e de onde vem (esta sessão, `SYNC_RELAY_MODE`, arquivo de configuração, padrão), auto, contexto atual, ponto de troca e a origem dele, pasta das passagens. |
+| `/relay off` | Trava e lembretes desligados SÓ nesta sessão. Sem reiniciar. |
+| `/relay remind` | Só o lembrete nesta sessão; nada é bloqueado. |
+| `/relay on` | A trava de volta nesta sessão. |
 | `relay` | A mensagem inteira. Igual a `/relay`, e é o jeito no Codex (depois `/new`). |
+| `relay off`, `relay remind`, `relay on` | A mensagem inteira (maiúsculas não importam, `/` no começo vale). Igual aos três comandos acima; é o jeito sem o mod e no Codex. Vem da sua mensagem, nunca de uma chamada de ferramenta; um prompt agendado (`/loop`) não se distingue de um digitado por você. |
 
-Qualquer outro argumento mostra o uso. A linha de estado, ao lado da sua, fica assim: `sync_relay: auto desligado · 45k de 150k` (ou `medindo`, `trocando…`).
+Qualquer outro argumento mostra o uso. A linha de estado, ao lado da sua, fica assim: `sync-relay: auto desligado · 45k de 150k` (ou `medindo`, `trocando…`).
 
 ## CLIs suportadas
 
@@ -74,8 +78,12 @@ Um arquivo JSON para as duas CLIs: `%APPDATA%\sync_relay\config.json` no Windows
 | `lang` | `auto` | `auto`, `en` ou `pt-BR`. |
 | `handoff_dir` | por usuário | Onde ficam os arquivos de passagem. |
 | `routing` | veja os docs | Agente, modelo e esforço por camada e por CLI. |
+| `allow_reads` | `true` | `false` desliga a exceção de leitura abaixo. |
+| `read_commands` | uma semente pequena | Padrões de comando que a sessão principal travada pode rodar. É um ponto de partida: ajuste ao seu contexto. |
 
-Para desligar numa sessão, abra a CLI com `SYNC_RELAY_MODE=off`.
+Para desligar a trava numa sessão, digite `/relay off` (ou só `relay off`). Sem reiniciar.
+
+A sessão principal também pode rodar alguns comandos inofensivos (`git status`, `ls`, `cat` de arquivo pequeno...) e fazer `Read` de arquivo pequeno. Essa lista é só uma semente em `read_commands`: troque, acrescente ou esvazie com `[]`. Um repositório pode somar a dele com `.claude/sync_relay.json`. A única regra fixa: o comando inteiro tem de ser UM comando simples, sem `|`, `;`, `&`, redirecionamento, crase, `$`, quebra de linha, aspas, barra invertida nem curinga, e a primeira palavra de um padrão é literal. `cat`, `head` e `tail` só leem arquivo regular existente dentro do limite de tamanho. Detalhes: [docs/configuration.md](docs/configuration.md) (em inglês).
 
 ## Como funciona
 

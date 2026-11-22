@@ -6,7 +6,7 @@ export type PassagemFase = 'ocioso' | 'aguardando' | 'escrevendo' | 'contando' |
 
 declare module 'claude-code' {
   interface PluginState {
-    'sync_relay': {
+    'sync-relay': {
       tokens: number | null
       piso: number | null
       adiado: number | null

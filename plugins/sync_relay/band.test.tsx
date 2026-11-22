@@ -789,7 +789,7 @@ const vectors = {
 const M = { role: 'user' as const, text: 'resumo', toolUses: [] }
 
 const FAIXA = {
-  plugin: 'sync_relay',
+  plugin: 'sync-relay',
   component: 'AbovePrompt',
   props: {
     hasSurvey: false,
@@ -1204,7 +1204,7 @@ async function auto(
   })
   on('fs.read', (_: any, e: any) => {
     const caminho = String(e.path).replaceAll('\\', '/')
-    if (caminho.includes('_trace-')) {
+    if (caminho.includes('_trace-') || caminho.includes('_modo-')) {
       if (!c.escritas.has(caminho)) throw new Error('nao existe')
       return { value: c.escritas.get(caminho) }
     }
@@ -2151,7 +2151,7 @@ test('/relay status (pt-BR): trava, auto, contexto, ponto de troca com a origem 
   c.tokens.v = 182_000
   await turno($, { turnId: 't2' })
   expect(await statusCmd($)).toBe(
-    'Trava: enforce · auto: desligado · contexto: 182k tokens · troca em 180k = piso 30k + 150k (compactação em 967k: padrão do modelo) · passagens: C:/Users/x/AppData/Local/sync_relay/handoffs · botão: visível',
+    'Trava: enforce (padrão) · auto: desligado · contexto: 182k tokens · troca em 180k = piso 30k + 150k (compactação em 967k: padrão do modelo) · passagens: C:/Users/x/AppData/Local/sync_relay/handoffs · botão: visível',
   )
   await $.command.run({ command: 'relay', args: 'auto' } as never)
   expect(await statusCmd($)).toMatch(/auto: ligado/)
@@ -2165,7 +2165,7 @@ test('/relay status (en) com janela de 200K: o teto de 80% do caminho aparece na
   c.tokens.v = 100_000
   await turno($, { turnId: 't2' })
   expect(await statusCmd($)).toBe(
-    'Lock: enforce · auto: on · context: 100k tokens · switch at 166k = floor 30k + 136k (80% of the way to compaction at 200k: model default) · handoffs: C:/Users/x/AppData/Local/sync_relay/handoffs · button: visible',
+    'Lock: enforce (default) · auto: on · context: 100k tokens · switch at 166k = floor 30k + 136k (80% of the way to compaction at 200k: model default) · handoffs: C:/Users/x/AppData/Local/sync_relay/handoffs · button: visible',
   )
 })
 
@@ -2183,7 +2183,7 @@ test('/relay: argumento que nao e auto, status ou button mostra o uso (sem thres
   await auto($, on, { ligado: false })
   for (const a of ['xyz', 'threshold', 'threshold 5k', 'limiar', 'limiar 5k', 'padrao', 'default', 'botao', 'handoff', 'auto now']) {
     const t = ((await $.command.run({ command: 'relay', args: a } as never)) as any).text as string
-    expect(t, a).toBe('Uso: /relay (troca agora), /relay auto (liga ou desliga a troca automática), /relay status (mostra o estado) ou /relay button (esconde ou mostra o botão).')
+    expect(t, a).toBe('Uso: /relay (troca agora), /relay auto (liga ou desliga a troca automática), /relay status (mostra o estado), /relay button (esconde ou mostra o botão) ou /relay off | remind | on (a trava, só nesta sessão).')
   }
 })
 
@@ -3330,4 +3330,56 @@ test('voltar a ocioso sem pedido pendente nao grava marcador', async ($, on) => 
   const c = await auto($, on, { ligado: false })
   await pessoa($, 'oi')
   expect([...c.escritas.keys()].filter(k => k.includes('_req-'))).toEqual([])
+})
+
+// ---------- v0.2.1: mode of one session ----------
+
+const cmdRelay = async ($: any, args: string) => ((await $.command.run({ command: 'relay', args } as never)) as any).text as string
+
+test('/relay off | remind | on grava _modo-p<PID>.txt na pasta de estado e confirma', async ($, on) => {
+  const c = await auto($, on, { ligado: false })
+  expect(await cmdRelay($, 'off')).toBe('sync_relay: trava DESLIGADA nesta sessão (sem lembrete também). /relay on religa.')
+  expect(c.escritas.get(`${PASTA}/_modo-p100.txt`)).toBe('off')
+  expect(await cmdRelay($, 'remind')).toBe('sync_relay: só o lembrete nesta sessão (nada é bloqueado). /relay on traz a trava de volta.')
+  expect(c.escritas.get(`${PASTA}/_modo-p100.txt`)).toBe('remind')
+  expect(await cmdRelay($, 'ON')).toBe('sync_relay: trava LIGADA nesta sessão.')
+  expect(c.escritas.get(`${PASTA}/_modo-p100.txt`)).toBe('enforce')
+})
+
+test('/relay off sem CLAUDE_PID usa o id da sessao (letras e digitos, 24)', async ($, on) => {
+  const c = await auto($, on, { ligado: false })
+  c.env.v = {}
+  await cmdRelay($, 'off')
+  expect([...c.escritas.keys()].filter(k => k.includes('_modo-'))).toEqual([`${PASTA}/_modo-saaaa11110000000000000000.txt`])
+})
+
+test('/relay off sem pasta de estado gravavel: avisa que nada mudou', async ($, on) => {
+  const c = await auto($, on, { ligado: false })
+  c.escritaFalha.v = true
+  expect(await cmdRelay($, 'off')).toBe('sync_relay: não deu para gravar o modo desta sessão; nada mudou.')
+})
+
+test('/relay status mostra a origem do modo: padrao, env, alias antigo e sessao', async ($, on) => {
+  await auto($, on, { ligado: false })
+  expect(await statusCmd($)).toMatch(/^Trava: enforce \(padrão\) ·/)
+  await cmdRelay($, 'off')
+  expect(await statusCmd($)).toMatch(/^Trava: off \(nesta sessão\) ·/)
+  await cmdRelay($, 'on')
+  expect(await statusCmd($)).toMatch(/^Trava: enforce \(nesta sessão\) ·/)
+})
+
+test('/relay status: SYNC_RELAY_MODE e o alias SYNCLABS_RELAY_MODE aparecem como origem env', async ($, on) => {
+  await auto($, on, { ligado: false, penv: { SYNC_RELAY_MODE: 'remind' } })
+  expect(await statusCmd($)).toMatch(/^Trava: remind \(SYNC_RELAY_MODE\) ·/)
+})
+
+test('alias antigo SYNCLABS_RELAY_MODE vale quando o novo nao existe', async ($, on) => {
+  await auto($, on, { ligado: false, penv: { SYNCLABS_RELAY_MODE: 'off' } })
+  expect(await statusCmd($)).toMatch(/^Trava: off \(SYNC_RELAY_MODE\) ·/)
+})
+
+test('alias antigo SYNCLABS_RELAY_AUTO: vale e avisa uma vez que sai na 0.4.0', async ($, on) => {
+  const c = await auto($, on, { penv: { SYNCLABS_RELAY_AUTO: '1' } })
+  expect(c.toasts.filter(t => t.includes('SYNCLABS_RELAY_AUTO'))).toEqual(['sync_relay: SYNCLABS_RELAY_AUTO ainda vale, mas sai na 0.4.0. Use o nome SYNC_RELAY_*.'])
+  expect(await statusCmd($)).toMatch(/auto: ligado/)
 })

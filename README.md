@@ -2,7 +2,7 @@
 
 English | [Português](README.pt-BR.md) | [Español](README.es.md)
 
-![License: MIT](https://img.shields.io/badge/license-MIT-blue) ![Version 0.2.0](https://img.shields.io/badge/version-0.2.0-informational) ![CLI: Claude Code | Codex (untested)](https://img.shields.io/badge/CLI-Claude%20Code%20%7C%20Codex%20(untested)-lightgrey)
+![License: MIT](https://img.shields.io/badge/license-MIT-blue) ![Version 0.2.1](https://img.shields.io/badge/version-0.2.1-informational) ![CLI: Claude Code | Codex (untested)](https://img.shields.io/badge/CLI-Claude%20Code%20%7C%20Codex%20(untested)-lightgrey)
 
 Keeps your main coding session on orchestration, sends the work to subagents, and moves a long session to a fresh one with a handoff file before the context gets expensive.
 
@@ -11,15 +11,15 @@ Keeps your main coding session on orchestration, sends the work to subagents, an
 Claude Code:
 
 ```sh
-claude plugin marketplace add Sync-Labs-team/sync_relay
-claude plugin install sync_relay@sync_relay
+claude plugin marketplace add sync-labs-team/plugins
+claude plugin install sync-relay@sync-labs
 ```
 
 Codex (not tested in a real session, see [Supported CLIs](#supported-clis)):
 
 ```sh
-codex plugin marketplace add Sync-Labs-team/sync_relay
-codex plugin add sync_relay@sync_relay
+codex plugin marketplace add sync-labs-team/plugins
+codex plugin add sync-relay@sync-labs
 ```
 
 Needs Python 3.9 or newer as `python3`. On Claude Code the same plugin also adds the `/relay` command, a button and a status line. Upgrade, removal and common problems: [docs/faq.md](docs/faq.md).
@@ -31,7 +31,7 @@ Needs Python 3.9 or newer as `python3`. On Claude Code the same plugin also adds
 - The automatic switch point follows the model's window: 180k tokens on a 1M Claude window, 166k on 200K, 102k on a Codex limit of 120k (first response at 30k tokens). Rule: [docs/how-it-works.md](docs/how-it-works.md).
 - Hooks cost about 196 ms per call on Windows with the Microsoft Store `python3` shortcut, and about 26 ms of interpreter time with python.org Python.
 - 0 network calls. Everything stays under your user profile. Handoff text is capped at 9,000 characters.
-- 90 tests for the hooks and script, 182 for the Claude Code mod.
+- 120 tests for the hooks and script, 189 for the Claude Code mod.
 
 ## Quickstart
 
@@ -48,10 +48,14 @@ On Claude Code, `/relay` does steps 2 and 3 for you, and `/relay auto` does them
 | `/relay` | Writes the handoff and opens the new session now (Claude Code). |
 | `/relay auto` | Turns the automatic switch on or off. Remembered between sessions. |
 | `/relay button` | Shows or hides the fixed button `sync_relay auto: on/off` (pt-BR: `ligado/desligado`). Remembered between sessions. The status line stays. |
-| `/relay status` | Lock mode, auto, current context, switch point and where it comes from, handoff folder. |
+| `/relay status` | Lock mode and where it comes from (this session, `SYNC_RELAY_MODE`, config file, default), auto, current context, switch point and where it comes from, handoff folder. |
+| `/relay off` | Lock and reminders off for THIS session only. No restart. |
+| `/relay remind` | Only the reminder for this session; nothing is blocked. |
+| `/relay on` | The lock back on for this session. |
 | `relay` | The whole message. Same as `/relay`, and the way to do it on Codex (then `/new`). |
+| `relay off`, `relay remind`, `relay on` | The whole message (case ignored, a leading `/` allowed). Same as the three commands above; this is how to do it without the mod and on Codex. It comes from your own message, never from a tool call; a scheduled prompt (`/loop`) cannot be told apart from one you typed. |
 
-Any other argument prints the usage. The status line next to your own reads like `sync_relay: auto off · 45k of 150k` (or `measuring`, `switching…`).
+Any other argument prints the usage. The status line next to your own reads like `sync-relay: auto off · 45k of 150k` (or `measuring`, `switching…`).
 
 ## Supported CLIs
 
@@ -74,8 +78,12 @@ One JSON file for both CLIs: `%APPDATA%\sync_relay\config.json` on Windows, `~/.
 | `lang` | `auto` | `auto`, `en` or `pt-BR`. |
 | `handoff_dir` | per user | Where the handoff files go. |
 | `routing` | see docs | Agent, model and effort per layer and CLI. |
+| `allow_reads` | `true` | `false` turns off the read exception below. |
+| `read_commands` | a small seed | Command patterns the locked main session may run. A starting point, adjust it to your context. |
 
-To turn it off for one session, start the CLI with `SYNC_RELAY_MODE=off`.
+To turn the lock off for one session, type `/relay off` (or just `relay off`). No restart.
+
+The main session may also run a few harmless commands (`git status`, `ls`, `cat` of a small file...) and `Read` a small file. That list is only a seed in `read_commands`; replace it, extend it, or empty it with `[]`. A repository can add its own with `.claude/sync_relay.json`. The one fixed rule: the whole command must be ONE simple command, with no `|`, `;`, `&`, redirection, backtick, `$`, line break, quote, backslash or glob, and the first word of a pattern is literal. `cat`, `head` and `tail` only read an existing regular file within the size limit. Details: [docs/configuration.md](docs/configuration.md).
 
 ## How it works
 

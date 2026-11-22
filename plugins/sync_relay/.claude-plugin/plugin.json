@@ -1,6 +1,6 @@
 {
-  "name": "sync_relay",
-  "version": "0.2.0",
+  "name": "sync-relay",
+  "version": "0.2.1",
   "description": "sync_relay by Sync_Labs: keeps the main session delegating and hands a session over to a fresh one, in Claude Code and Codex. On Claude Code it also adds the /relay command, an auto button and a status line.",
   "author": { "name": "Sync_Labs" },
   "repository": "https://github.com/Sync-Labs-team/sync_relay",
