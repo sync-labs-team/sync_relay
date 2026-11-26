@@ -112,4 +112,4 @@ Informa de las vulnerabilidades en privado, mediante los avisos de seguridad del
 
 ## Licencia
 
-MIT: [LICENSE](LICENSE). Notas de versión: [CHANGELOG.md](CHANGELOG.md).
+MIT o Apache-2.0, a tu elección: [LICENSE-MIT](LICENSE-MIT), [LICENSE-APACHE](LICENSE-APACHE). Notas de versión: [CHANGELOG.md](CHANGELOG.md).

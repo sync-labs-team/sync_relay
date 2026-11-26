@@ -4,7 +4,7 @@
   "description": "sync_relay by Sync_Labs: keeps the main session delegating and hands a session over to a fresh one, in Claude Code and Codex. On Claude Code it also adds the /relay command, an auto button and a status line.",
   "author": { "name": "Sync_Labs" },
   "repository": "https://github.com/Sync-Labs-team/sync_relay",
-  "license": "MIT",
+  "license": "MIT OR Apache-2.0",
   "engines": { "claude-code": ">=2.1.323" },
   "types": "./types/index.d.ts",
   "hooks": "./hooks/claude.json"

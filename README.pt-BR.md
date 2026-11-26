@@ -112,4 +112,4 @@ Relate vulnerabilidades em particular, pelos avisos de segurança do repositóri
 
 ## Licença
 
-MIT: [LICENSE](LICENSE). Notas de versão: [CHANGELOG.md](CHANGELOG.md).
+MIT ou Apache-2.0, à sua escolha: [LICENSE-MIT](LICENSE-MIT), [LICENSE-APACHE](LICENSE-APACHE). Notas de versão: [CHANGELOG.md](CHANGELOG.md).

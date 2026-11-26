@@ -112,4 +112,4 @@ Report vulnerabilities privately through the repository's security advisories: [
 
 ## License
 
-MIT: [LICENSE](LICENSE). Release notes: [CHANGELOG.md](CHANGELOG.md).
+MIT or Apache-2.0, at your option: [LICENSE-MIT](LICENSE-MIT), [LICENSE-APACHE](LICENSE-APACHE). Release notes: [CHANGELOG.md](CHANGELOG.md).
